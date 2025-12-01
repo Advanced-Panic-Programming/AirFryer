@@ -5,8 +5,12 @@ use common_game::components::resource::{BasicResourceType, Combinator, ComplexRe
 use common_game::components::rocket::Rocket;
 use common_game::protocols::messages::{ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator};
 
-struct PlanetAI{
-
+pub struct PlanetAI{
+}
+impl PlanetAI {
+    pub fn new() -> PlanetAI {
+        PlanetAI {}
+    }
 }
 impl planet::PlanetAI for PlanetAI {
     fn handle_orchestrator_msg(&mut self, state: &mut PlanetState, generator: &Generator, combinator: &Combinator, msg: OrchestratorToPlanet) -> Option<PlanetToOrchestrator> {
@@ -49,8 +53,7 @@ impl planet::PlanetAI for PlanetAI {
                 hs.insert(ComplexResourceType::Water);
                 hs.insert(ComplexResourceType::Life);
                 hs.insert(ComplexResourceType::Robot);
-                Some(PlanetToExplorer::SupportedCombinationResponse { combination_list: Some(hs),});
-                todo!()
+                Some(PlanetToExplorer::SupportedCombinationResponse { combination_list: Some(hs)})
             }
             ExplorerToPlanet::GenerateResourceRequest { .. } => {
                 todo!()
