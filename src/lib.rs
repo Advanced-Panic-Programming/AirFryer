@@ -1,1 +1,1 @@
-mod AirFrier;
+mod air_frier;

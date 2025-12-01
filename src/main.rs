@@ -1,4 +1,6 @@
+use common_game::components::planet::Planet;
+
 fn main() {
-    println!("Hello, world!");
-    print!("Let's seee ")
+    //Planet::new(0, PlanetType::C, (), vec![], vec![], ((), ()), ((), ()));
+
 }
