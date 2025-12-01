@@ -9,7 +9,33 @@ struct PlanetAI{
 }
 impl planet::PlanetAI for PlanetAI {
     fn handle_orchestrator_msg(&mut self, state: &mut PlanetState, generator: &Generator, combinator: &Combinator, msg: OrchestratorToPlanet) -> Option<PlanetToOrchestrator> {
-        todo!()
+        match msg {
+            OrchestratorToPlanet::Sunray(_) => {
+                if state.has_rocket() {
+                    todo!()
+                }
+                else {
+                    todo!()
+                }
+            }
+            OrchestratorToPlanet::Asteroid(_) => {
+                if state.has_rocket() {
+                    Some(PlanetToOrchestrator::AsteroidAck { planet_id: state.id(), rocket: state.take_rocket() })
+                }
+                else {
+                    Some(PlanetToOrchestrator::AsteroidAck { planet_id: state.id(), rocket: None })
+                }
+            }
+            OrchestratorToPlanet::StartPlanetAI(_) => {
+                todo!()
+            }
+            OrchestratorToPlanet::StopPlanetAI(_) => {
+                todo!()
+            }
+            OrchestratorToPlanet::InternalStateRequest(_) => {
+                todo!()
+            }
+        }
     }
 
     fn handle_explorer_msg(&mut self, state: &mut PlanetState, generator: &Generator, combinator: &Combinator, msg: ExplorerToPlanet) -> Option<PlanetToExplorer> {
