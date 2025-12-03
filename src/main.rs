@@ -27,6 +27,7 @@ fn main() {
     if planet.is_ok(){
         planet.unwrap().run();
     }
+    //Planet::new(0, PlanetType::C, (), vec![], vec![], ((), ()), ((), ()));
 
 }
 #[cfg(test)]
@@ -122,7 +123,7 @@ mod tests {
     }
     #[test]
     fn ask_for_carbon_from_explorer() {
-        let mut planet = spawn_planet();
+        let planet = spawn_planet();
         planet.snd_exp_to_planet.send(ExplorerToPlanet::GenerateResourceRequest { explorer_id: 0, resource: BasicResourceType::Carbon });
         let res = planet.rcv_planet_to_exp.recv();
         match res{
@@ -142,9 +143,43 @@ mod tests {
             Err(_) => {
                 println!("Result error");
             }
+            _=> {}
         }
     }
 
+    #[test]
+    fn ask_for_planet_available_energy_cell() {
+        let planet = spawn_planet();
+        let _ = planet.snd_exp_to_planet.send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
+        let res = planet.rcv_planet_to_exp.recv();
+        match res {
+            Ok(msg) => {
+                match msg {
+                    PlanetToExplorer::AvailableEnergyCellResponse { available_cells } => {
+                        println!("Available energy cells: {:?}", available_cells);
+                        assert_eq!(1, available_cells);
+                    }
+                    _ => {
+                        println!("Wrong response");
+                        assert_eq!(1, 2);
+                    }
+                }
+            }
+            Err(_) => {
+                println!("Result error");
+            }
+        }
+    }
+
+    #[test]
+    fn multiple_start_ai_messages_are_ignored() {
+
+    }
+
+    #[test]
+    fn multiple_stop_ai_messages_are_ignored() {
+
+    }
 }
 
 
