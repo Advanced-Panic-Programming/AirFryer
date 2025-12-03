@@ -1,4 +1,6 @@
 use std::collections::HashSet;
+use std::os::unix::raw::time_t;
+use std::time::SystemTime;
 use common_game::components::planet;
 use common_game::components::planet::{PlanetState, PlanetType};
 use common_game::components::resource::{BasicResource, BasicResourceType, Combinator, ComplexResourceType, Generator};
@@ -21,15 +23,25 @@ impl planet::PlanetAI for PlanetAI {
     fn handle_orchestrator_msg(&mut self, state: &mut PlanetState, generator: &Generator, combinator: &Combinator, msg: OrchestratorToPlanet) -> Option<PlanetToOrchestrator> {
         if self.started {
             match msg {
-                OrchestratorToPlanet::Sunray(_) => {
-                    if state.has_rocket() {
-                        todo!()
+                OrchestratorToPlanet::Sunray(Sunray) => {
+                    if ! state.cell(0).is_charged() {
+
+                        state.cell_mut(0).charge(Sunray);
+
+                        if state.can_have_rocket(){
+
+                            if ! state.has_rocket(){
+                                state.build_rocket(0);
+                            }
+                        }
                     }
-                    else {
-                        todo!()
+                    else{
+                        state.build_rocket(0);
+                        state.cell_mut(0).charge(Sunray);
                     }
+                    Some(PlanetToOrchestrator::SunrayAck { planet_id: 0, timestamp: SystemTime::now() })
                 }
-                OrchestratorToPlanet::Asteroid(_) => {
+                OrchestratorToPlanet::Asteroid(Asteroid) => {
                     Some(PlanetToOrchestrator::AsteroidAck {planet_id: state.id(), rocket: self.handle_asteroid(state, generator, combinator)})
                 }
                 OrchestratorToPlanet::StartPlanetAI(_) => {
@@ -83,33 +95,16 @@ impl planet::PlanetAI for PlanetAI {
                     }
                 }
 
-                /*
-                if resource != BasicResourceType::Carbon {
-                    return Some(PlanetToExplorer::GenerateResourceResponse(Err("Can't do it")));
-                    Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
-                }
-                else{
-                    //state.cell_mut(0).charge(Sunray::new()); //DA ELIMINARE
-                    let carbon = generator.make_carbon(state.cell_mut(0));
-                    match carbon {
-
-                        Ok(res) => {
-
-                            Some(PlanetToExplorer::GenerateResourceResponse {resource: Some(BasicResource::Carbon(res))})
-                        }
-                        Err(_) => {Some(PlanetToExplorer::GenerateResourceResponse { resource: None })}
-                    }
-
-                }
-                 */
             }
             ExplorerToPlanet::CombineResourceRequest { .. } => {
                 todo!()
             }
             ExplorerToPlanet::AvailableEnergyCellRequest { .. } => {
+                //Vincenzo
                 todo!()
             }
             ExplorerToPlanet::InternalStateRequest { .. } => {
+                //Verrà tolto,l'esploratore non deve poter accedere allo stato interno del pianeta
                 todo!()
             }
         }
