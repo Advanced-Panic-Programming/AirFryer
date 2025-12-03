@@ -93,26 +93,6 @@ impl planet::PlanetAI for PlanetAI {
                         }
                     }
                 }
-
-                /*
-                if resource != BasicResourceType::Carbon {
-                    return Some(PlanetToExplorer::GenerateResourceResponse(Err("Can't do it")));
-                    Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
-                }
-                else{
-                    //state.cell_mut(0).charge(Sunray::new()); //DA ELIMINARE
-                    let carbon = generator.make_carbon(state.cell_mut(0));
-                    match carbon {
-
-                        Ok(res) => {
-
-                            Some(PlanetToExplorer::GenerateResourceResponse {resource: Some(BasicResource::Carbon(res))})
-                        }
-                        Err(_) => {Some(PlanetToExplorer::GenerateResourceResponse { resource: None })}
-                    }
-
-                }
-                 */
             }
             ExplorerToPlanet::CombineResourceRequest { .. } => {
                 todo!()
