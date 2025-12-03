@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::time::SystemTime;
 use common_game::components::planet;
 use common_game::components::planet::{PlanetState, PlanetType};
 use common_game::components::resource::{BasicResource, BasicResourceType, Combinator, ComplexResourceType, Generator};
@@ -34,11 +35,11 @@ impl planet::PlanetAI for PlanetAI {
                 }
                 OrchestratorToPlanet::StartPlanetAI(_) => {
                     self.start(state);
-                    Some(PlanetToOrchestrator::StartPlanetAIResult {planet_id: state.id(),timestamp: todo!()})
+                    Some(PlanetToOrchestrator::StartPlanetAIResult {planet_id: state.id(),timestamp: SystemTime::now() })
                 }
                 OrchestratorToPlanet::StopPlanetAI(_) => {
                     self.stop(state);
-                    Some(PlanetToOrchestrator::StopPlanetAIResult {planet_id: state.id(), timestamp: todo!()})
+                    Some(PlanetToOrchestrator::StopPlanetAIResult {planet_id: state.id(), timestamp: SystemTime::now() })
                 }
                 OrchestratorToPlanet::InternalStateRequest(_) => {
                     todo!()

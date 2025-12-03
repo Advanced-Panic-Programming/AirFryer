@@ -107,7 +107,7 @@ mod tests {
         let _ = planet.snd_exp_to_planet.send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
         let res = planet.rcv_planet_to_exp.recv();
         match res {
-            Ok( msg ) => {
+            Ok(msg) => {
                 match msg {
                     PlanetToExplorer::AvailableEnergyCellResponse { available_cells } => {
                         println!("Available energy cells: {:?}", available_cells);
@@ -123,10 +123,8 @@ mod tests {
                 println!("Result error");
             }
         }
-
-
     }
-
+    
 }
 
 
