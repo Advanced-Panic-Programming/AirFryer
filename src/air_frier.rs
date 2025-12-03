@@ -5,7 +5,6 @@ use common_game::components::resource::{BasicResource, BasicResourceType, Combin
 use common_game::components::rocket::Rocket;
 use common_game::components::sunray::Sunray;
 use common_game::protocols::messages::{ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator};
-
 pub struct PlanetAI{
     has_explorer : bool,
     started: bool,
@@ -53,12 +52,12 @@ impl planet::PlanetAI for PlanetAI {
 
     fn handle_explorer_msg(&mut self, state: &mut PlanetState, generator: &Generator, combinator: &Combinator, msg: ExplorerToPlanet) -> Option<PlanetToExplorer> {
         match msg {
-            ExplorerToPlanet::SupportedResourceRequest {..} => {
+            ExplorerToPlanet::SupportedResourceRequest {explorer_id } => {
                 let mut hs = HashSet::new();
                 hs.insert(BasicResourceType::Carbon);
                 Some(PlanetToExplorer::SupportedResourceResponse { resource_list: Some( hs) })
             }
-            ExplorerToPlanet::SupportedCombinationRequest { .. } => {
+            ExplorerToPlanet::SupportedCombinationRequest {explorer_id} => {
                 let mut hs = HashSet::new();
                 hs.insert(ComplexResourceType::AIPartner);
                 hs.insert(ComplexResourceType::Diamond);
@@ -134,6 +133,7 @@ impl planet::PlanetAI for PlanetAI {
 
     fn stop(&mut self, state: &PlanetState) {
         self.started = false;
+
         //to do
     }
 }
