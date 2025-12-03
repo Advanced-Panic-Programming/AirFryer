@@ -70,6 +70,23 @@ impl planet::PlanetAI for PlanetAI {
             }
             ExplorerToPlanet::GenerateResourceRequest {explorer_id, resource} => {
                 if resource != BasicResourceType::Carbon {
+                    Some(PlanetToExplorer::GenerateResourceResponse {resource: None})
+                }
+                else{
+                    let generated = generator.make_carbon(state.cell_mut(0));
+                    match generated {
+                        Ok(carbon) => {
+                            Some(PlanetToExplorer::GenerateResourceResponse {resource: Some(BasicResource::Carbon(carbon))})
+                        }
+                        Err(string) => {
+                            Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
+                        }
+                    }
+                }
+
+                /*
+                if resource != BasicResourceType::Carbon {
+                    return Some(PlanetToExplorer::GenerateResourceResponse(Err("Can't do it")));
                     Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
                 }
                 else{
@@ -85,6 +102,7 @@ impl planet::PlanetAI for PlanetAI {
                     }
 
                 }
+                 */
             }
             ExplorerToPlanet::CombineResourceRequest { .. } => {
                 todo!()

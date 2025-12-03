@@ -32,13 +32,9 @@ fn main() {
 }
 #[cfg(test)]
 mod tests {
-    use std::os::macos::raw::pthread_t;
-    use std::sync::mpsc;
     use std::thread;
-    use common_game::components::planet::{Planet, PlanetType};
-    use common_game::components::resource::{BasicResource, BasicResourceType, Carbon, ComplexResourceType};
-    use common_game::protocols::messages::{ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator, StartPlanetAiMsg};
-    use crate::air_frier;
+    use common_game::protocols::messages::StartPlanetAiMsg;
+    use super::*;
 
     #[test]
     fn ask_for_carbon_from_explorer() {
@@ -66,26 +62,23 @@ mod tests {
         });
         let res = rcv_planet_to_expl.recv();
         match res{
-            Ok(msg) => {
+            Ok(msg)=>{
                 match msg {
-                    PlanetToExplorer::SupportedResourceResponse { .. } => {}
-                    PlanetToExplorer::SupportedCombinationResponse { .. } => {}
-                    PlanetToExplorer::GenerateResourceResponse { resource } => {
+                    PlanetToExplorer::GenerateResourceResponse {resource} => {
                         if resource.is_some(){
-                            println!("Resource generated successfully");
+                            println!("Resource generated successfully!");
                         }
                         else {
-                            println!("Resource not generated");
+                            println!("Resource not generated!");
                         }
                     }
-                    PlanetToExplorer::CombineResourceResponse { .. } => {}
-                    PlanetToExplorer::AvailableEnergyCellResponse { .. } => {}
-                    PlanetToExplorer::InternalStateResponse { .. } => {}
+                    _ => {}
                 }
             }
             Err(_) => {
                 println!("Result error");
             }
+            _=> {}
         }
     }
 }
