@@ -106,8 +106,8 @@ impl planet::PlanetAI for PlanetAI {
             ExplorerToPlanet::CombineResourceRequest { .. } => {
                 todo!()
             }
-            ExplorerToPlanet::AvailableEnergyCellRequest { .. } => {
-                todo!()
+            ExplorerToPlanet::AvailableEnergyCellRequest { .. } => { // Enum has explorer_id param -> unused
+                Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: state.cells_count() as u32 })
             }
             ExplorerToPlanet::InternalStateRequest { .. } => {
                 todo!()
