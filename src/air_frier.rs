@@ -100,8 +100,7 @@ impl planet::PlanetAI for PlanetAI {
                 todo!()
             }
             ExplorerToPlanet::AvailableEnergyCellRequest { .. } => {
-                //Vincenzo
-                todo!()
+                Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: state.cells_count() as u32 })
             }
             ExplorerToPlanet::InternalStateRequest { .. } => {
                 //Verrà tolto,l'esploratore non deve poter accedere allo stato interno del pianeta
