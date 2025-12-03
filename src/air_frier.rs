@@ -43,8 +43,13 @@ impl planet::PlanetAI for PlanetAI {
                     }
                 }
                 OrchestratorToPlanet::StopPlanetAI(_) => {
+                    if self.started {
+                        self.started = false;
                     self.stop(state);
                     Some(PlanetToOrchestrator::StopPlanetAIResult {planet_id: state.id(), timestamp: SystemTime::now() })
+                    } else {
+                        None
+                    }
                 }
                 OrchestratorToPlanet::InternalStateRequest(_) => {
                     todo!()
