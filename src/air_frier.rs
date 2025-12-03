@@ -112,9 +112,14 @@ impl planet::PlanetAI for PlanetAI {
     fn handle_asteroid(&mut self, state: &mut PlanetState, generator: &Generator, combinator: &Combinator) -> Option<Rocket> {
         if state.has_rocket() {
             Some(state.take_rocket()?)
-        }
-        else{
-            None
+        }  else {
+            // Error handling is done in the common-code trait implementation
+            // i.e. planet can have rocket, planet energy cell is charged, ...
+
+            // Try to build the rocket
+            let _ = state.build_rocket(state.cells_count());
+            state.take_rocket()
+
         }
     }
 
