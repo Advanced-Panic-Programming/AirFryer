@@ -34,8 +34,13 @@ impl planet::PlanetAI for PlanetAI {
                     Some(PlanetToOrchestrator::AsteroidAck {planet_id: state.id(), rocket: self.handle_asteroid(state, generator, combinator)})
                 }
                 OrchestratorToPlanet::StartPlanetAI(_) => {
-                    self.start(state);
-                    Some(PlanetToOrchestrator::StartPlanetAIResult {planet_id: state.id(),timestamp: SystemTime::now() })
+                    if !self.started {
+                        self.started = true;
+                        self.start(state);
+                        Some(PlanetToOrchestrator::StartPlanetAIResult {planet_id: state.id(),timestamp: SystemTime::now() })
+                    } else {
+                        None
+                    }
                 }
                 OrchestratorToPlanet::StopPlanetAI(_) => {
                     self.stop(state);
