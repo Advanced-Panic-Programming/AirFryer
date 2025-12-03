@@ -6,7 +6,7 @@ use common_game::components::rocket::Rocket;
 use common_game::components::sunray::Sunray;
 use common_game::protocols::messages::{ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator};
 pub struct PlanetAI{
-    has_explorer : bool,
+    has_explorer : bool, // wait for OutgoingExplorerRequest message to be implemented in the common-code trait
     started: bool,
 }
 impl PlanetAI {
