@@ -3,6 +3,7 @@ use common_game::components::planet;
 use common_game::components::planet::{PlanetState, PlanetType};
 use common_game::components::resource::{BasicResource, BasicResourceType, Combinator, ComplexResourceType, Generator};
 use common_game::components::rocket::Rocket;
+use common_game::components::sunray::Sunray;
 use common_game::protocols::messages::{ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator};
 
 pub struct PlanetAI{
@@ -69,9 +70,10 @@ impl planet::PlanetAI for PlanetAI {
             }
             ExplorerToPlanet::GenerateResourceRequest {explorer_id, resource} => {
                 if resource != BasicResourceType::Carbon {
-                    None
+                    Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
                 }
                 else{
+                    //state.cell_mut(0).charge(Sunray::new()); //DA ELIMINARE
                     let carbon = generator.make_carbon(state.cell_mut(0));
                     match carbon {
 
@@ -79,7 +81,7 @@ impl planet::PlanetAI for PlanetAI {
 
                             Some(PlanetToExplorer::GenerateResourceResponse {resource: Some(BasicResource::Carbon(res))})
                         }
-                        Err(_) => {None}
+                        Err(_) => {Some(PlanetToExplorer::GenerateResourceResponse { resource: None })}
                     }
 
                 }

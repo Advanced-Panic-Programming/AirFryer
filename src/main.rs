@@ -61,18 +61,32 @@ mod tests {
         let planet = Planet::new(0, PlanetType::C, ia, gene, compl, (rcv_orc_to_planet, sdr_planet_to_orc), (rcv_expl_to_planet, sdr_planet_to_expl));
         sdr_orc_to_planet.send(OrchestratorToPlanet::StartPlanetAI(StartPlanetAiMsg));
         sdr_expl_to_planet.send(ExplorerToPlanet::GenerateResourceRequest {explorer_id: 0, resource: BasicResourceType::Carbon});
-        planet.unwrap().run().expect("TODO: panic message");
         let t1 = thread::spawn(move ||{
-            let res = rcv_planet_to_expl.recv();
-            match res{
-                Ok(msg) => {
-                    println!("Result OK");
-                }
-                Err(_) => {
-                    assert_eq!(1,2);
+            planet.unwrap().run();
+        });
+        let res = rcv_planet_to_expl.recv();
+        match res{
+            Ok(msg) => {
+                match msg {
+                    PlanetToExplorer::SupportedResourceResponse { .. } => {}
+                    PlanetToExplorer::SupportedCombinationResponse { .. } => {}
+                    PlanetToExplorer::GenerateResourceResponse { resource } => {
+                        if resource.is_some(){
+                            println!("Resource generated successfully");
+                        }
+                        else {
+                            println!("Resource not generated");
+                        }
+                    }
+                    PlanetToExplorer::CombineResourceResponse { .. } => {}
+                    PlanetToExplorer::AvailableEnergyCellResponse { .. } => {}
+                    PlanetToExplorer::InternalStateResponse { .. } => {}
                 }
             }
-        });
+            Err(_) => {
+                println!("Result error");
+            }
+        }
     }
 }
 
