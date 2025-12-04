@@ -158,7 +158,6 @@ impl planet::PlanetAI for PlanetAI {
 
         // Try to build a rocket
         if state.build_rocket(0).is_ok() {
-        if state.build_rocket(0).is_ok() {
             self.pending_warning = false;
             return state.take_rocket();
         }
