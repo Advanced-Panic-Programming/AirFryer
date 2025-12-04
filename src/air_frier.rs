@@ -1,12 +1,8 @@
-use common_game::components::resource::ComplexResource::Robot;
 use std::collections::HashSet;
-use std::os::unix::raw::time_t;
-use std::time::SystemTime;
 use common_game::components::planet;
-use common_game::components::planet::{PlanetState, PlanetType};
+use common_game::components::planet::{PlanetState};
 use common_game::components::resource::{BasicResource, BasicResourceType, Combinator, ComplexResource, ComplexResourceRequest, ComplexResourceType, Generator};
 use common_game::components::rocket::Rocket;
-use common_game::components::sunray::Sunray;
 use common_game::protocols::messages::{ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator};
 
 
@@ -24,12 +20,20 @@ impl PlanetAI {
 }
 impl planet::PlanetAI for PlanetAI {
     fn handle_orchestrator_msg(&mut self, state: &mut PlanetState, generator: &Generator, combinator: &Combinator, msg: OrchestratorToPlanet) -> Option<PlanetToOrchestrator> {
+        //If the planet is stopped, I check if the message i receive is the start message, else I return None
+        match msg {
+            OrchestratorToPlanet::StartPlanetAI => {
+                self.start(state);
+                PlanetToOrchestrator::StartPlanetAIResult { planet_id: state.id() };
+            },
+            _ =>{}
+        }
         if self.started {
             match msg {
-                OrchestratorToPlanet::Sunray(Sunray) => {
+                OrchestratorToPlanet::Sunray(sunray) => {
                     if ! state.cell(0).is_charged() {
 
-                        state.cell_mut(0).charge(Sunray);
+                        state.cell_mut(0).charge(sunray);
 
                         if state.can_have_rocket(){
 
@@ -39,12 +43,12 @@ impl planet::PlanetAI for PlanetAI {
                         }
                     }
                     else{
-                        state.build_rocket(0);
-                        state.cell_mut(0).charge(Sunray);
+                        let _ = state.build_rocket(state.cells_count());
+                        state.cell_mut(0).charge(sunray);
                     }
                     Some(PlanetToOrchestrator::SunrayAck { planet_id: 0})
                 }
-                OrchestratorToPlanet::Asteroid(Asteroid) => {
+                OrchestratorToPlanet::Asteroid(asteroid) => {
                     Some(PlanetToOrchestrator::AsteroidAck {planet_id: state.id(), rocket: self.handle_asteroid(state, generator, combinator)})
                 }
                 OrchestratorToPlanet::StartPlanetAI => {
@@ -56,13 +60,13 @@ impl planet::PlanetAI for PlanetAI {
                     Some(PlanetToOrchestrator::StopPlanetAIResult {planet_id: state.id()})
                 }
                 OrchestratorToPlanet::InternalStateRequest => {
-                    todo!()
+                    todo!() //Michele
                 },
                 OrchestratorToPlanet::IncomingExplorerRequest { .. } =>{
-                    todo!()
+                    todo!() //Michele
                 }
                 OrchestratorToPlanet::OutgoingExplorerRequest { .. } => {
-                    todo!()
+                    todo!() //?
                 }
             }
         }
@@ -72,93 +76,102 @@ impl planet::PlanetAI for PlanetAI {
     }
 
     fn handle_explorer_msg(&mut self, state: &mut PlanetState, generator: &Generator, combinator: &Combinator, msg: ExplorerToPlanet) -> Option<PlanetToExplorer> {
-        match msg {
-            ExplorerToPlanet::SupportedResourceRequest {explorer_id } => {
-                let mut hs = HashSet::new();
-                hs.insert(BasicResourceType::Carbon);
-                Some(PlanetToExplorer::SupportedResourceResponse { resource_list: hs})
+        //Questo OK, l'altro no, pianeta non starta se
+        if self.started {
+            if ! self.has_explorer{
+                self.has_explorer = true;
             }
-            ExplorerToPlanet::SupportedCombinationRequest {explorer_id} => {
-                let mut hs = HashSet::new();
-                hs.insert(ComplexResourceType::AIPartner);
-                hs.insert(ComplexResourceType::Diamond);
-                hs.insert(ComplexResourceType::Dolphin);
-                hs.insert(ComplexResourceType::Water);
-                hs.insert(ComplexResourceType::Life);
-                hs.insert(ComplexResourceType::Robot);
-                Some(PlanetToExplorer::SupportedCombinationResponse { combination_list: hs})
-            }
-            ExplorerToPlanet::GenerateResourceRequest {explorer_id, resource} => {
-                if resource != BasicResourceType::Carbon {
-                    Some(PlanetToExplorer::GenerateResourceResponse {resource: None})
+            match msg {
+                ExplorerToPlanet::SupportedResourceRequest {explorer_id } => {
+                    let mut hs = HashSet::new();
+                    hs.insert(BasicResourceType::Carbon);
+                    Some(PlanetToExplorer::SupportedResourceResponse { resource_list: hs})
                 }
-                else{
-                    let generated = generator.make_carbon(state.cell_mut(0));
-                    match generated {
-                        Ok(carbon) => {
-                            Some(PlanetToExplorer::GenerateResourceResponse {resource: Some(BasicResource::Carbon(carbon))})
-                        }
-                        Err(string) => {
-                            Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
-                        }
-                    }
+                ExplorerToPlanet::SupportedCombinationRequest {explorer_id} => {
+                    let mut hs = HashSet::new();
+                    hs.insert(ComplexResourceType::AIPartner);
+                    hs.insert(ComplexResourceType::Diamond);
+                    hs.insert(ComplexResourceType::Dolphin);
+                    hs.insert(ComplexResourceType::Water);
+                    hs.insert(ComplexResourceType::Life);
+                    hs.insert(ComplexResourceType::Robot);
+                    Some(PlanetToExplorer::SupportedCombinationResponse { combination_list: hs})
                 }
+                ExplorerToPlanet::GenerateResourceRequest {explorer_id, resource} => {
+                    if resource != BasicResourceType::Carbon {
+                        Some(PlanetToExplorer::GenerateResourceResponse {resource: None})
+                    }
+                    else{
+                        let generated = generator.make_carbon(state.cell_mut(0));
+                        match generated {
+                            Ok(carbon) => {
+                                Some(PlanetToExplorer::GenerateResourceResponse {resource: Some(BasicResource::Carbon(carbon))})
+                            }
+                            Err(_) => {
+                                Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
+                            }
+                        }
+                    }
 
-            }
-            ExplorerToPlanet::CombineResourceRequest {explorer_id,msg } => {
-                let res:Option<ComplexResource> = match msg {
-                    ComplexResourceRequest::Water(h, o) => {
-                        if let Ok(complex) = combinator.make_water(h,o,state.cell_mut(0)){
-                            Some(ComplexResource::Water(complex))
-                        }
-                        else{
-                            None
-                        }
+                }
+                ExplorerToPlanet::CombineResourceRequest {explorer_id,msg } => {
+                    let res:Option<ComplexResource> = match msg {
+                        ComplexResourceRequest::Water(h, o) => {
+                            if let Ok(complex) = combinator.make_water(h,o,state.cell_mut(0)){
+                                Some(ComplexResource::Water(complex))
+                            }
+                            else{
+                                None
+                            }
 
-                    }
-                    ComplexResourceRequest::Diamond(c1, c2) => {
-                        if let Ok(complex) = combinator.make_diamond(c1,c2,state.cell_mut(0)){
-                            Some(ComplexResource::Diamond(complex))
                         }
-                        else{
-                            None
+                        ComplexResourceRequest::Diamond(c1, c2) => {
+                            if let Ok(complex) = combinator.make_diamond(c1,c2,state.cell_mut(0)){
+                                Some(ComplexResource::Diamond(complex))
+                            }
+                            else{
+                                None
+                            }
                         }
-                    }
-                    ComplexResourceRequest::Life(w, c) => {
-                        if let Ok(complex) = combinator.make_life(w,c,state.cell_mut(0)){
-                            Some(ComplexResource::Life(complex))
+                        ComplexResourceRequest::Life(w, c) => {
+                            if let Ok(complex) = combinator.make_life(w,c,state.cell_mut(0)){
+                                Some(ComplexResource::Life(complex))
+                            }
+                            else{
+                                None
+                            }                    }
+                        ComplexResourceRequest::Robot(s, l) => {
+                            if let Ok(complex) = combinator.make_robot(s,l,state.cell_mut(0)){
+                                Some(ComplexResource::Robot(complex))
+                            }
+                            else{
+                                None
+                            }                    }
+                        ComplexResourceRequest::Dolphin(w, l) => {
+                            if let Ok(complex) = combinator.make_dolphin(w,l,state.cell_mut(0)){
+                                Some(ComplexResource::Dolphin(complex))
+                            }
+                            else{
+                                None
+                            }
                         }
-                        else{
-                            None
-                        }                    }
-                    ComplexResourceRequest::Robot(s, l) => {
-                        if let Ok(complex) = combinator.make_robot(s,l,state.cell_mut(0)){
-                            Some(ComplexResource::Robot(complex))
-                        }
-                        else{
-                            None
-                        }                    }
-                    ComplexResourceRequest::Dolphin(w, l) => {
-                        if let Ok(complex) = combinator.make_dolphin(w,l,state.cell_mut(0)){
-                            Some(ComplexResource::Dolphin(complex))
-                        }
-                        else{
-                            None
-                        }
-                    }
-                    ComplexResourceRequest::AIPartner(r, d) => {
-                        if let Ok(complex) = combinator.make_aipartner(r,d,state.cell_mut(0)){
-                            Some(ComplexResource::AIPartner(complex))
-                        }
-                        else{
-                            None
-                        }                    }
-                };
-                Some(PlanetToExplorer::CombineResourceResponse { complex_response: res })
+                        ComplexResourceRequest::AIPartner(r, d) => {
+                            if let Ok(complex) = combinator.make_aipartner(r,d,state.cell_mut(0)){
+                                Some(ComplexResource::AIPartner(complex))
+                            }
+                            else{
+                                None
+                            }                    }
+                    };
+                    Some(PlanetToExplorer::CombineResourceResponse { complex_response: res })
+                }
+                ExplorerToPlanet::AvailableEnergyCellRequest { .. } => {
+                    Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: state.cells_count() as u32 })
+                }
             }
-            ExplorerToPlanet::AvailableEnergyCellRequest { .. } => {
-                Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: state.cells_count() as u32 })
-            }
+        }
+        else {
+            None
         }
     }
 
@@ -177,15 +190,14 @@ impl planet::PlanetAI for PlanetAI {
     }
 
     fn start(&mut self, state: &PlanetState) {
-        //Manda messaggio per vedere se ha l'esploratore
-        //if -> true o false
         self.started = true;
+        self.has_explorer = false;
         //to do
     }
 
     fn stop(&mut self, state: &PlanetState) {
         self.started = false;
-
+        self.has_explorer = false;
         //to do
     }
 }
