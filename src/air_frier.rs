@@ -1,12 +1,16 @@
+use common_game::components::resource::ComplexResource::Robot;
 use std::collections::HashSet;
 use std::os::unix::raw::time_t;
 use std::time::SystemTime;
 use common_game::components::planet;
 use common_game::components::planet::{PlanetState, PlanetType};
-use common_game::components::resource::{BasicResource, BasicResourceType, Combinator, ComplexResourceType, Generator};
+use common_game::components::resource::{BasicResource, BasicResourceType, Combinator, ComplexResource, ComplexResourceRequest, ComplexResourceType, Generator};
 use common_game::components::rocket::Rocket;
 use common_game::components::sunray::Sunray;
 use common_game::protocols::messages::{ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator};
+use common_game::protocols::messages::ExplorerToPlanet::CombineResourceRequest;
+use common_game::protocols::messages::OrchestratorToExplorer::CombineResourceRequest;
+
 pub struct PlanetAI{
     has_explorer : bool,
     started: bool,
@@ -73,7 +77,7 @@ impl planet::PlanetAI for PlanetAI {
             ExplorerToPlanet::SupportedResourceRequest {explorer_id } => {
                 let mut hs = HashSet::new();
                 hs.insert(BasicResourceType::Carbon);
-                Some(PlanetToExplorer::SupportedResourceResponse { resource_list: Some( hs) })
+                Some(PlanetToExplorer::SupportedResourceResponse { resource_list: hs})
             }
             ExplorerToPlanet::SupportedCombinationRequest {explorer_id} => {
                 let mut hs = HashSet::new();
@@ -83,7 +87,7 @@ impl planet::PlanetAI for PlanetAI {
                 hs.insert(ComplexResourceType::Water);
                 hs.insert(ComplexResourceType::Life);
                 hs.insert(ComplexResourceType::Robot);
-                Some(PlanetToExplorer::SupportedCombinationResponse { combination_list: Some(hs)})
+                Some(PlanetToExplorer::SupportedCombinationResponse { combination_list: hs})
             }
             ExplorerToPlanet::GenerateResourceRequest {explorer_id, resource} => {
                 if resource != BasicResourceType::Carbon {
@@ -102,8 +106,39 @@ impl planet::PlanetAI for PlanetAI {
                 }
 
             }
-            ExplorerToPlanet::CombineResourceRequest { .. } => {
-                todo!()
+            ExplorerToPlanet::CombineResourceRequest {explorer_id,msg } => {
+                let res:Option<ComplexResource> = match msg {
+                    ComplexResourceRequest::Water(h, o) => {
+                        if let Ok(complex) = combinator.make_water(h,o,state.cell_mut(0)){
+                            Some(ComplexResource::Water(complex))
+                        }
+                        else{
+                            None
+                        }
+
+                    }
+                    ComplexResourceRequest::Diamond(c1, c2) => {
+                        if let Ok(complex) = combinator.make_diamond(c1,c2,state.cell_mut(0)){
+                            Some(ComplexResource::Diamond(complex))
+                        }
+                        else{
+                            None
+                        }
+                    }
+                    ComplexResourceRequest::Life(w, c) => {
+                        todo!()
+                    }
+                    ComplexResourceRequest::Robot(s, l) => {
+                        todo!()
+                    }
+                    ComplexResourceRequest::Dolphin(w, l) => {
+                        todo!()
+                    }
+                    ComplexResourceRequest::AIPartner(r, d) => {
+                        todo!()
+                    }
+                };
+                Some(PlanetToExplorer::CombineResourceResponse { complex_response: res })
             }
             ExplorerToPlanet::AvailableEnergyCellRequest { .. } => {
                 Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: state.cells_count() as u32 })
