@@ -38,7 +38,7 @@ impl planet::PlanetAI for PlanetAI {
                         if state.can_have_rocket(){
 
                             if ! state.has_rocket(){
-                                state.build_rocket(0);
+                                let _ = state.build_rocket(0);
                             }
                         }
                     }
