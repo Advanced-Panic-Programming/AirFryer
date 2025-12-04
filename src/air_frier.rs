@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::os::unix::raw::time_t;
 use std::time::SystemTime;
 use common_game::components::planet;
 use common_game::components::planet::{PlanetState, PlanetType};
@@ -56,7 +55,11 @@ impl planet::PlanetAI for PlanetAI {
                     todo!()
                 },
                 OrchestratorToPlanet::IncomingExplorerRequest { .. } =>{
-                    todo!()
+                    self.has_explorer = true;
+                    Some(PlanetToOrchestrator::IncomingExplorerResponse {
+                        planet_id: state.id(),
+                        res: Ok(()),
+                    })
                 }
                 OrchestratorToPlanet::OutgoingExplorerRequest { .. } => {
                     todo!()
@@ -73,7 +76,7 @@ impl planet::PlanetAI for PlanetAI {
             ExplorerToPlanet::SupportedResourceRequest {explorer_id } => {
                 let mut hs = HashSet::new();
                 hs.insert(BasicResourceType::Carbon);
-                Some(PlanetToExplorer::SupportedResourceResponse { resource_list: Some( hs) })
+                Some(PlanetToExplorer::SupportedResourceResponse { resource_list: hs })
             }
             ExplorerToPlanet::SupportedCombinationRequest {explorer_id} => {
                 let mut hs = HashSet::new();
@@ -83,7 +86,7 @@ impl planet::PlanetAI for PlanetAI {
                 hs.insert(ComplexResourceType::Water);
                 hs.insert(ComplexResourceType::Life);
                 hs.insert(ComplexResourceType::Robot);
-                Some(PlanetToExplorer::SupportedCombinationResponse { combination_list: Some(hs)})
+                Some(PlanetToExplorer::SupportedCombinationResponse { combination_list: hs })
             }
             ExplorerToPlanet::GenerateResourceRequest {explorer_id, resource} => {
                 if resource != BasicResourceType::Carbon {
