@@ -189,11 +189,10 @@ mod tests {
             .send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 })
             .unwrap();
 
-        // Explorer MUST receive the secret warning message (99)
         let expl_msg = ctx.rcv_planet_to_exp.recv().unwrap();
         match expl_msg {
             PlanetToExplorer::AvailableEnergyCellResponse { available_cells } => {
-                assert_eq!(available_cells, 99, "Explorer did not receive asteroid warning");
+                assert_eq!(available_cells, 0, "Explorer did not receive asteroid warning");
             }
             _ => panic!("Wrong message sent to explorer, expected AvailableEnergyCellResponse"),
         }

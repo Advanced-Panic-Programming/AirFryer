@@ -70,7 +70,7 @@ impl planet::PlanetAI for PlanetAI {
 
                     // Set AsteroidAck delay
                     self.pending_rocket_for_ack = Some(rocket);
-                    self.delay_asteroid_ack = 2;
+                    self.delay_asteroid_ack = 10;
 
                     // Delayed response
                     None
@@ -105,7 +105,7 @@ impl planet::PlanetAI for PlanetAI {
         // Warn the explorer
         if self.pending_warning {
             self.pending_warning = false;
-            return Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: 99u32 }) // Secret code: 99 = incoming asteroid
+            return Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: 0u32 }) // 0 = incoming asteroid
         }
 
         match msg {
@@ -157,7 +157,8 @@ impl planet::PlanetAI for PlanetAI {
         }
 
         // Try to build a rocket
-        if state.build_rocket(state.cells_count()).is_ok() {
+        if state.build_rocket(0).is_ok() {
+        if state.build_rocket(0).is_ok() {
             self.pending_warning = false;
             return state.take_rocket();
         }
