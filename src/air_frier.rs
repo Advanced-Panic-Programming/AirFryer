@@ -8,8 +8,7 @@ use common_game::components::resource::{BasicResource, BasicResourceType, Combin
 use common_game::components::rocket::Rocket;
 use common_game::components::sunray::Sunray;
 use common_game::protocols::messages::{ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator};
-use common_game::protocols::messages::ExplorerToPlanet::CombineResourceRequest;
-use common_game::protocols::messages::OrchestratorToExplorer::CombineResourceRequest;
+
 
 pub struct PlanetAI{
     has_explorer : bool,
@@ -126,17 +125,34 @@ impl planet::PlanetAI for PlanetAI {
                         }
                     }
                     ComplexResourceRequest::Life(w, c) => {
-                        todo!()
-                    }
+                        if let Ok(complex) = combinator.make_life(w,c,state.cell_mut(0)){
+                            Some(ComplexResource::Life(complex))
+                        }
+                        else{
+                            None
+                        }                    }
                     ComplexResourceRequest::Robot(s, l) => {
-                        todo!()
-                    }
+                        if let Ok(complex) = combinator.make_robot(s,l,state.cell_mut(0)){
+                            Some(ComplexResource::Robot(complex))
+                        }
+                        else{
+                            None
+                        }                    }
                     ComplexResourceRequest::Dolphin(w, l) => {
-                        todo!()
+                        if let Ok(complex) = combinator.make_dolphin(w,l,state.cell_mut(0)){
+                            Some(ComplexResource::Dolphin(complex))
+                        }
+                        else{
+                            None
+                        }
                     }
                     ComplexResourceRequest::AIPartner(r, d) => {
-                        todo!()
-                    }
+                        if let Ok(complex) = combinator.make_aipartner(r,d,state.cell_mut(0)){
+                            Some(ComplexResource::AIPartner(complex))
+                        }
+                        else{
+                            None
+                        }                    }
                 };
                 Some(PlanetToExplorer::CombineResourceResponse { complex_response: res })
             }
