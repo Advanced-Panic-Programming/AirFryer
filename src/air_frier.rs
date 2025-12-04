@@ -39,20 +39,26 @@ impl planet::PlanetAI for PlanetAI {
                         state.build_rocket(0);
                         state.cell_mut(0).charge(Sunray);
                     }
-                    Some(PlanetToOrchestrator::SunrayAck { planet_id: 0, timestamp: SystemTime::now() })
+                    Some(PlanetToOrchestrator::SunrayAck { planet_id: 0})
                 }
                 OrchestratorToPlanet::Asteroid(Asteroid) => {
                     Some(PlanetToOrchestrator::AsteroidAck {planet_id: state.id(), rocket: self.handle_asteroid(state, generator, combinator)})
                 }
-                OrchestratorToPlanet::StartPlanetAI(_) => {
+                OrchestratorToPlanet::StartPlanetAI => {
                     self.start(state);
-                    Some(PlanetToOrchestrator::StartPlanetAIResult {planet_id: state.id(),timestamp: todo!()})
+                    Some(PlanetToOrchestrator::StartPlanetAIResult {planet_id: state.id()})
                 }
-                OrchestratorToPlanet::StopPlanetAI(_) => {
+                OrchestratorToPlanet::StopPlanetAI => {
                     self.stop(state);
-                    Some(PlanetToOrchestrator::StopPlanetAIResult {planet_id: state.id(), timestamp: todo!()})
+                    Some(PlanetToOrchestrator::StopPlanetAIResult {planet_id: state.id()})
                 }
-                OrchestratorToPlanet::InternalStateRequest(_) => {
+                OrchestratorToPlanet::InternalStateRequest => {
+                    todo!()
+                },
+                OrchestratorToPlanet::IncomingExplorerRequest { .. } =>{
+                    todo!()
+                }
+                OrchestratorToPlanet::OutgoingExplorerRequest { .. } => {
                     todo!()
                 }
             }
@@ -101,10 +107,6 @@ impl planet::PlanetAI for PlanetAI {
             }
             ExplorerToPlanet::AvailableEnergyCellRequest { .. } => {
                 Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: state.cells_count() as u32 })
-            }
-            ExplorerToPlanet::InternalStateRequest { .. } => {
-                //Verrà tolto,l'esploratore non deve poter accedere allo stato interno del pianeta
-                todo!()
             }
         }
     }
