@@ -1,5 +1,4 @@
 mod air_frier;
-
 use std::sync::mpsc;
 use common_game::components::planet::{Planet, PlanetType};
 use common_game::components::resource::{BasicResourceType, ComplexResourceType};
@@ -23,23 +22,22 @@ fn main() {
     let (sdr_planet_to_orc, rcv_planet_to_orc) = mpsc::channel::<PlanetToOrchestrator>();
     let (sdr_orc_to_planet, rcv_orc_to_planet) = mpsc::channel::<OrchestratorToPlanet>();
 
-    let planet = Planet::new(0, PlanetType::C, ia, gene, compl, (rcv_orc_to_planet, sdr_planet_to_orc), (rcv_expl_to_planet, sdr_planet_to_expl));
+    let planet = Planet::new(0, PlanetType::C, Box::new(ia), gene, compl, (rcv_orc_to_planet, sdr_planet_to_orc), (rcv_expl_to_planet, sdr_planet_to_expl));
     if planet.is_ok(){
         planet.unwrap().run();
     }
     //Planet::new(0, PlanetType::C, (), vec![], vec![], ((), ()), ((), ()));
-
 }
+
 #[cfg(test)]
 mod tests {
     use std::thread;
     use std::thread::sleep;
     use std::time::Duration;
     use common_game::components::asteroid::Asteroid;
+    use common_game::components::generator::Generator;
     use common_game::components::sunray::Sunray;
-    use common_game::protocols::messages::OrchestratorToPlanet::Asteroid as OtherAsteroid;
-    use common_game::protocols::messages::StartPlanetAiMsg;
-    use log::log;
+    use common_game::protocols::messages::OrchestratorToPlanet::{Asteroid as OtherAsteroid};
     use super::*;
     struct TestContext{
         snd_orc_to_planet: mpsc::Sender<OrchestratorToPlanet>,
@@ -65,8 +63,8 @@ mod tests {
         let (sdr_planet_to_orc, rcv_planet_to_orc) = mpsc::channel::<PlanetToOrchestrator>();
         let (sdr_orc_to_planet, rcv_orc_to_planet) = mpsc::channel::<OrchestratorToPlanet>();
 
-        let planet = Planet::new(0, PlanetType::C, ia, gene, compl, (rcv_orc_to_planet, sdr_planet_to_orc), (rcv_expl_to_planet, sdr_planet_to_expl));
-        sdr_orc_to_planet.send(OrchestratorToPlanet::StartPlanetAI(StartPlanetAiMsg));
+        let planet = Planet::new(0, PlanetType::C, Box::new(ia), gene, compl, (rcv_orc_to_planet, sdr_planet_to_orc), (rcv_expl_to_planet, sdr_planet_to_expl));
+        sdr_orc_to_planet.send(OrchestratorToPlanet::StartPlanetAI);
         let t1 = thread::spawn(move ||{
             planet.unwrap().run();
         });
@@ -80,51 +78,53 @@ mod tests {
     }
 
     #[test]
-    ///Sends an asteroid to the planet and checks that the planet responde with a none
-    fn test_asteroid_with_no_rocket() {
-        let mut planet = spawn_planet();
-        planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(Asteroid::new()));
-        let res = planet.rcv_planet_to_orc.recv();
-        match res {
-            Ok(msg) => {
-                match msg{
-                    PlanetToOrchestrator::AsteroidAck { planet_id: _, rocket: r } => {
-                        assert!(r.is_none());
-                    }
-                    _=>{}
-                }
-            }
-            Err(_) => {}
-        }
-    }
+    /// Sends an asteroid to the planet and checks that the planet responde with a none
+    // fn test_asteroid_with_no_rocket() {
+    //     let mut planet = spawn_planet();
+    //     let generator = Generator::new();
+    //     let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(generator.unwrap().generate_asteroid());
+    //     let res = planet.rcv_planet_to_orc.recv();
+    //     match res {
+    //         Ok(msg) => {
+    //             match msg{
+    //                 PlanetToOrchestrator::AsteroidAck { planet_id: _, rocket: r } => {
+    //                     assert!(r.is_none());
+    //                 }
+    //                 _=>{}
+    //             }
+    //         }
+    //         Err(_) => {}
+    //     }
+    // }
+
     #[test]
     ///Sends a sunray to the planet, that makes a rocket with it, later it sends an asteroid and we check if che planet respond with a rocket
     fn test_asteroid_with_rocket() {
         let planet = spawn_planet();
-        planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(Sunray::new()));
-        planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(Asteroid::new()));
+        let generator = Generator::new();
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(generator.as_ref().unwrap().generate_sunray()));
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(generator.unwrap().generate_asteroid()));
         let res = planet.rcv_planet_to_orc.recv();
         let res = planet.rcv_planet_to_orc.recv();
         match res {
             Ok(msg) => {
                 match msg {
-                    PlanetToOrchestrator::AsteroidAck {planet_id: _, rocket: r } => {
+                    PlanetToOrchestrator::AsteroidAck { planet_id: _, rocket: r } => {
                         assert!(r.is_some());
                     }
-                    _=>{}
+                    _ => {}
                 }
-
             }
             Err(_) => {
                 assert!(false);
             }
         }
-
     }
+
     #[test]
     fn ask_for_carbon_from_explorer() {
         let planet = spawn_planet();
-        planet.snd_exp_to_planet.send(ExplorerToPlanet::GenerateResourceRequest { explorer_id: 0, resource: BasicResourceType::Carbon });
+        let _ = planet.snd_exp_to_planet.send(ExplorerToPlanet::GenerateResourceRequest { explorer_id: 0, resource: BasicResourceType::Carbon });
         let res = planet.rcv_planet_to_exp.recv();
         match res{
             Ok(msg)=>{
@@ -172,14 +172,48 @@ mod tests {
     }
 
     #[test]
-    fn multiple_start_ai_messages_are_ignored() {
+    fn asteroid_warning_and_delayed_ack() {
+        let ctx = spawn_planet();
 
+        // Send asteroid to planet
+        let generator = common_game::components::generator::Generator::new();
+        let _ = ctx.snd_orc_to_planet
+            .send(OrchestratorToPlanet::Asteroid(generator.unwrap().generate_asteroid()));
+
+        // The ACK must NOT be sent immediately (planet delays it)
+        assert!(ctx.rcv_planet_to_orc.recv_timeout(Duration::from_millis(10)).is_err(),
+                "ACK arrived too early (delay not respected)");
+
+        // Explorer sends any request planet uses this opportunity to send the secret warning
+        ctx.snd_exp_to_planet
+            .send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 })
+            .unwrap();
+
+        // Explorer MUST receive the secret warning message (99)
+        let expl_msg = ctx.rcv_planet_to_exp.recv().unwrap();
+        match expl_msg {
+            PlanetToExplorer::AvailableEnergyCellResponse { available_cells } => {
+                assert_eq!(available_cells, 99, "Explorer did not receive asteroid warning");
+            }
+            _ => panic!("Wrong message sent to explorer, expected AvailableEnergyCellResponse"),
+        }
+
+        // Next tick → the delayed ACK MUST now arrive
+        let ack = ctx.rcv_planet_to_orc.recv_timeout(Duration::from_millis(20))
+            .expect("Delayed ACK not received");
+
+        // Validate the ACK
+        match ack {
+            PlanetToOrchestrator::AsteroidAck { planet_id: _, rocket } => {
+                assert!(
+                    rocket.is_none(),
+                    "Planet incorrectly claimed to have a rocket (expected None)"
+                );
+            }
+            _ => panic!("Received wrong message instead of AsteroidAck"),
+        }
     }
 
-    #[test]
-    fn multiple_stop_ai_messages_are_ignored() {
-
-    }
 }
 
 

@@ -1,48 +1,81 @@
 use std::collections::HashSet;
 use std::os::unix::raw::time_t;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use common_game::components::planet;
 use common_game::components::planet::{PlanetState, PlanetType};
 use common_game::components::resource::{BasicResource, BasicResourceType, Combinator, ComplexResourceType, Generator};
 use common_game::components::rocket::Rocket;
 use common_game::components::sunray::Sunray;
 use common_game::protocols::messages::{ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator};
+
 pub struct PlanetAI{
     has_explorer : bool,
     started: bool,
+    pending_warning: bool, // To warn the explorer
+    delay_asteroid_ack: u32, // Delay planet destruction
+    pending_rocket_for_ack: Option<Option<Rocket>>, // Rocket/None to send against asteroid
 }
 impl PlanetAI {
     pub fn new() -> PlanetAI {
         PlanetAI {
             has_explorer : false,
             started: false,
+            pending_warning: false,
+            delay_asteroid_ack: 0,
+            pending_rocket_for_ack: None,
         }
     }
 }
 impl planet::PlanetAI for PlanetAI {
     fn handle_orchestrator_msg(&mut self, state: &mut PlanetState, generator: &Generator, combinator: &Combinator, msg: OrchestratorToPlanet) -> Option<PlanetToOrchestrator> {
         if self.started {
+            // Handle asteroid response delay
+            if self.delay_asteroid_ack > 0 {
+                self.delay_asteroid_ack -= 1;
+
+                if self.delay_asteroid_ack > 0 {
+                    return None;
+                }
+
+                // Delay ended
+                let rocket = self.pending_rocket_for_ack.take().unwrap();
+
+                return Some(PlanetToOrchestrator::AsteroidAck {
+                    planet_id: state.id(),
+                    rocket,
+                });
+            }
+
             match msg {
-                OrchestratorToPlanet::Sunray(Sunray) => {
+                OrchestratorToPlanet::Sunray(sunray) => {
                     if ! state.cell(0).is_charged() {
 
-                        state.cell_mut(0).charge(Sunray);
+                        state.cell_mut(0).charge(sunray);
 
                         if state.can_have_rocket(){
 
                             if ! state.has_rocket(){
-                                state.build_rocket(0);
+                                let _ = state.build_rocket(0);
                             }
                         }
                     }
                     else{
-                        state.build_rocket(0);
-                        state.cell_mut(0).charge(Sunray);
+                        let _ = state.build_rocket(0);
+                        state.cell_mut(0).charge(sunray);
                     }
                     Some(PlanetToOrchestrator::SunrayAck { planet_id: 0})
                 }
-                OrchestratorToPlanet::Asteroid(Asteroid) => {
-                    Some(PlanetToOrchestrator::AsteroidAck {planet_id: state.id(), rocket: self.handle_asteroid(state, generator, combinator)})
+                OrchestratorToPlanet::Asteroid(_) => {
+                    let rocket = self.handle_asteroid(state, generator, combinator);
+
+                    // Set AsteroidAck delay
+                    self.pending_rocket_for_ack = Some(rocket);
+                    self.delay_asteroid_ack = 2;
+
+                    // Delayed response
+                    None
+
+                    // Some(PlanetToOrchestrator::AsteroidAck {planet_id: state.id(), rocket: self.handle_asteroid(state, generator, combinator)})
                 }
                 OrchestratorToPlanet::StartPlanetAI => {
                     self.start(state);
@@ -62,18 +95,24 @@ impl planet::PlanetAI for PlanetAI {
                     todo!()
                 }
             }
-        }
-        else{
+        }  else {
             None
         }
     }
 
     fn handle_explorer_msg(&mut self, state: &mut PlanetState, generator: &Generator, combinator: &Combinator, msg: ExplorerToPlanet) -> Option<PlanetToExplorer> {
+
+        // Warn the explorer
+        if self.pending_warning {
+            self.pending_warning = false;
+            return Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: 99u32 }) // Secret code: 99 = incoming asteroid
+        }
+
         match msg {
             ExplorerToPlanet::SupportedResourceRequest {explorer_id } => {
                 let mut hs = HashSet::new();
                 hs.insert(BasicResourceType::Carbon);
-                Some(PlanetToExplorer::SupportedResourceResponse { resource_list: Some( hs) })
+                Some(PlanetToExplorer::SupportedResourceResponse { resource_list: hs })
             }
             ExplorerToPlanet::SupportedCombinationRequest {explorer_id} => {
                 let mut hs = HashSet::new();
@@ -83,7 +122,7 @@ impl planet::PlanetAI for PlanetAI {
                 hs.insert(ComplexResourceType::Water);
                 hs.insert(ComplexResourceType::Life);
                 hs.insert(ComplexResourceType::Robot);
-                Some(PlanetToExplorer::SupportedCombinationResponse { combination_list: Some(hs)})
+                Some(PlanetToExplorer::SupportedCombinationResponse { combination_list: hs })
             }
             ExplorerToPlanet::GenerateResourceRequest {explorer_id, resource} => {
                 if resource != BasicResourceType::Carbon {
@@ -113,16 +152,28 @@ impl planet::PlanetAI for PlanetAI {
 
     fn handle_asteroid(&mut self, state: &mut PlanetState, generator: &Generator, combinator: &Combinator) -> Option<Rocket> {
         if state.has_rocket() {
-            Some(state.take_rocket()?)
-        }  else {
-            // Error handling is done in the common-code trait implementation
-            // i.e. planet can have rocket, planet energy cell is charged, ...
-
-            // Try to build the rocket
-            let _ = state.build_rocket(state.cells_count());
-            state.take_rocket()
-
+            self.pending_warning = false;
+            return state.take_rocket();
         }
+
+        // Try to build a rocket
+        if state.build_rocket(state.cells_count()).is_ok() {
+            self.pending_warning = false;
+            return state.take_rocket();
+        }
+
+        // Couldn't build the rocket -> warn the explorer
+        self.pending_warning = true;
+
+        // Exploit handle_explorer_msg to send the secret message
+        let _ = self.handle_explorer_msg(
+            state,
+            generator,
+            combinator,
+            ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 }
+        );
+        // Return that we don't have a rocket
+        None
     }
 
     fn start(&mut self, state: &PlanetState) {
