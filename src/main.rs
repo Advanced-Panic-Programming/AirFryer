@@ -180,6 +180,16 @@ mod tests {
     fn multiple_stop_ai_messages_are_ignored() {
 
     }
+    #[test]
+    fn arrival_of_exploer(){
+
+    }
+    #[test]
+    fn departure_of_explorer(){
+
+    }
+
+
 }
 
 
