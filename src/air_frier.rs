@@ -119,55 +119,7 @@ impl planet::PlanetAI for PlanetAI {
 
                 }
                 ExplorerToPlanet::CombineResourceRequest {explorer_id,msg } => {
-                    let res:Option<ComplexResource> = match msg {
-                        ComplexResourceRequest::Water(h, o) => {
-                            if let Ok(complex) = combinator.make_water(h,o,state.cell_mut(0)){
-                                Some(ComplexResource::Water(complex))
-                            }
-                            else{
-                                None
-                            }
-
-                        }
-                        ComplexResourceRequest::Diamond(c1, c2) => {
-                            if let Ok(complex) = combinator.make_diamond(c1,c2,state.cell_mut(0)){
-                                Some(ComplexResource::Diamond(complex))
-                            }
-                            else{
-                                None
-                            }
-                        }
-                        ComplexResourceRequest::Life(w, c) => {
-                            if let Ok(complex) = combinator.make_life(w,c,state.cell_mut(0)){
-                                Some(ComplexResource::Life(complex))
-                            }
-                            else{
-                                None
-                            }                    }
-                        ComplexResourceRequest::Robot(s, l) => {
-                            if let Ok(complex) = combinator.make_robot(s,l,state.cell_mut(0)){
-                                Some(ComplexResource::Robot(complex))
-                            }
-                            else{
-                                None
-                            }                    }
-                        ComplexResourceRequest::Dolphin(w, l) => {
-                            if let Ok(complex) = combinator.make_dolphin(w,l,state.cell_mut(0)){
-                                Some(ComplexResource::Dolphin(complex))
-                            }
-                            else{
-                                None
-                            }
-                        }
-                        ComplexResourceRequest::AIPartner(r, d) => {
-                            if let Ok(complex) = combinator.make_aipartner(r,d,state.cell_mut(0)){
-                                Some(ComplexResource::AIPartner(complex))
-                            }
-                            else{
-                                None
-                            }                    }
-                    };
-                    Some(PlanetToExplorer::CombineResourceResponse { complex_response: res })
+                  todo!()
                 }
                 ExplorerToPlanet::AvailableEnergyCellRequest { .. } => {
                     Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: state.cells_count() as u32 })
