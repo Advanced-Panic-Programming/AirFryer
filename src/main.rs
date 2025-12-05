@@ -184,6 +184,39 @@ mod tests {
     fn multiple_stop_ai_messages_are_ignored() {
 
     }
+
+    #[test]
+    fn incoming_explorer() {
+        let planet = spawn_planet();
+        let (snd, _rcv) = mpsc::channel();
+        planet.snd_orc_to_planet.send(OrchestratorToPlanet::IncomingExplorerRequest { explorer_id: 0, new_mpsc_sender:  snd});
+        let res = planet.rcv_planet_to_orc.recv();
+        match res {
+            Ok(PlanetToOrchestrator::IncomingExplorerResponse { planet_id, res }) => {
+                assert_eq!(planet_id, 0); // Verifica ID
+                assert!(res.is_ok(), "The result should be Ok");
+                println!("The explorer has been accepted!");
+            }
+            Ok(_) => panic!("Wrong message"),
+            Err(e) => panic!("The planet didn't respond: {:?}", e),
+        }
+    }
+
+    #[test]
+    fn outgoing_explorer() {
+        let planet = spawn_planet();
+        planet.snd_orc_to_planet.send(OrchestratorToPlanet::OutgoingExplorerRequest { explorer_id: 0});
+        let res = planet.rcv_planet_to_orc.recv();
+        match res {
+            Ok(PlanetToOrchestrator::OutgoingExplorerResponse { planet_id, res }) => {
+                assert_eq!(planet_id, 0); // Verifica ID
+                assert!(res.is_ok(), "The result should be Ok");
+                println!("The explorer has been ejected!");
+            }
+            Ok(_) => panic!("Wrong message"),
+            Err(e) => panic!("The planet didn't respond: {:?}", e),
+        }
+    }
 }
 
 
