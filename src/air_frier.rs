@@ -13,7 +13,7 @@ use std::collections::HashSet;
 pub struct PlanetAI {
     has_explorer: bool,
     started: bool,
-    pending_warning: bool, // To warn the explorer
+    pending_warning: bool,  // To warn the explorer
     pending_asteroid: bool, // flag for a received asteroid
 }
 impl PlanetAI {
@@ -74,7 +74,7 @@ impl planet::PlanetAI for PlanetAI {
                     let rocket = self.handle_asteroid(state, generator, combinator);
                     Some(PlanetToOrchestrator::AsteroidAck {
                         planet_id: state.id(),
-                        rocket
+                        rocket,
                     })
                 }
                 OrchestratorToPlanet::StartPlanetAI => {
@@ -137,7 +137,9 @@ impl planet::PlanetAI for PlanetAI {
                     if self.pending_warning {
                         hs.remove(&ComplexResourceType::AIPartner);
                     }
-                    Some(PlanetToExplorer::SupportedCombinationResponse { combination_list: hs })
+                    Some(PlanetToExplorer::SupportedCombinationResponse {
+                        combination_list: hs,
+                    })
                 }
                 ExplorerToPlanet::GenerateResourceRequest {
                     explorer_id,
@@ -160,12 +162,14 @@ impl planet::PlanetAI for PlanetAI {
                 ExplorerToPlanet::CombineResourceRequest { explorer_id, msg } => {
                     todo!()
                 }
-                ExplorerToPlanet::AvailableEnergyCellRequest { .. } => {
-                    match state.full_cell() {
-                        Some(_) => { Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: 1u32 }) }
-                        None => { Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: 0u32 }) }
-                    }
-                }
+                ExplorerToPlanet::AvailableEnergyCellRequest { .. } => match state.full_cell() {
+                    Some(_) => Some(PlanetToExplorer::AvailableEnergyCellResponse {
+                        available_cells: 1u32,
+                    }),
+                    None => Some(PlanetToExplorer::AvailableEnergyCellResponse {
+                        available_cells: 0u32,
+                    }),
+                },
             }
         } else {
             None
@@ -176,7 +180,7 @@ impl planet::PlanetAI for PlanetAI {
         &mut self,
         state: &mut PlanetState,
         generator: &Generator,
-        combinator: &Combinator
+        combinator: &Combinator,
     ) -> Option<Rocket> {
         if state.has_rocket() {
             // reset warning flags after using the rocket

@@ -43,6 +43,7 @@ fn main() {
 mod tests {
     use super::*;
     use common_game::components::asteroid::Asteroid;
+    use common_game::components::generator::Generator;
     use common_game::components::sunray::Sunray;
     use common_game::protocols::messages::OrchestratorToPlanet::Asteroid as OtherAsteroid;
     use log::log;
@@ -51,7 +52,6 @@ mod tests {
     use std::thread;
     use std::thread::sleep;
     use std::time::Duration;
-    use common_game::components::generator::Generator;
 
     pub struct TestContext {
         pub snd_orc_to_planet: mpsc::Sender<OrchestratorToPlanet>,
@@ -272,14 +272,12 @@ mod tests {
 
     fn match_available_energy_cell_response(res: Result<PlanetToExplorer, RecvError>) -> i32 {
         match res {
-            Ok(msg) => {
-                match msg {
-                    PlanetToExplorer::AvailableEnergyCellResponse { available_cells } => {
-                        available_cells as i32
-                    }
-                    _ => -1
+            Ok(msg) => match msg {
+                PlanetToExplorer::AvailableEnergyCellResponse { available_cells } => {
+                    available_cells as i32
                 }
-            }
+                _ => -1,
+            },
             Err(err) => {
                 println!("Result error: {}", err);
                 -1
@@ -293,21 +291,32 @@ mod tests {
         let generator = Generator::new();
 
         // Test with no sunray received
-        let _ = planet.snd_exp_to_planet.send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
+        let _ = planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
         let mut res = planet.rcv_planet_to_exp.recv();
         assert_eq!(match_available_energy_cell_response(res), 0);
 
-
         // Test with 1 sunray received -> rocket was build -> expected 0
-        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(generator.as_ref().unwrap().generate_sunray()));
-        let _ = planet.snd_exp_to_planet.send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
+            generator.as_ref().unwrap().generate_sunray(),
+        ));
+        let _ = planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
         res = planet.rcv_planet_to_exp.recv();
         assert_eq!(match_available_energy_cell_response(res), 0);
 
         // Test with 2 sunray received -> rocket + 1 charge -> expected 1
-        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(generator.as_ref().unwrap().generate_sunray())); // Rocket built
-        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(generator.as_ref().unwrap().generate_sunray())); // EnergyCell built
-        let _ = planet.snd_exp_to_planet.send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
+            generator.as_ref().unwrap().generate_sunray(),
+        )); // Rocket built
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
+            generator.as_ref().unwrap().generate_sunray(),
+        )); // EnergyCell built
+        let _ = planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
         res = planet.rcv_planet_to_exp.recv();
         assert_eq!(match_available_energy_cell_response(res), 1);
     }
@@ -346,7 +355,11 @@ mod tests {
         let generator = Generator::new();
 
         // Send Asteroid
-        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(generator.unwrap().generate_asteroid()));
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::Asteroid(
+                generator.unwrap().generate_asteroid(),
+            ));
 
         // Receive ACK
         let ack = planet.rcv_planet_to_orc.recv().unwrap();
