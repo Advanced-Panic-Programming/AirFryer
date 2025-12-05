@@ -23,7 +23,7 @@ fn main() {
     let (sdr_planet_to_orc, rcv_planet_to_orc) = mpsc::channel::<PlanetToOrchestrator>();
     let (sdr_orc_to_planet, rcv_orc_to_planet) = mpsc::channel::<OrchestratorToPlanet>();
 
-    let planet = Planet::new(0, PlanetType::C, ia, gene, compl, (rcv_orc_to_planet, sdr_planet_to_orc), (rcv_expl_to_planet, sdr_planet_to_expl));
+    let planet = Planet::new(0, PlanetType::C, Box::new(ia), gene, compl, (rcv_orc_to_planet, sdr_planet_to_orc), (rcv_expl_to_planet, sdr_planet_to_expl));
     if planet.is_ok(){
         planet.unwrap().run();
     }
@@ -32,13 +32,15 @@ fn main() {
 }
 #[cfg(test)]
 mod tests {
+    use std::path::{Component, Components};
     use std::thread;
     use std::thread::sleep;
     use std::time::Duration;
     use common_game::components::asteroid::Asteroid;
+    use common_game::components::generator;
+    use common_game::components::generator::Generator;
     use common_game::components::sunray::Sunray;
     use common_game::protocols::messages::OrchestratorToPlanet::Asteroid as OtherAsteroid;
-    use common_game::protocols::messages::StartPlanetAiMsg;
     use log::log;
     use super::*;
     struct TestContext{
@@ -65,8 +67,8 @@ mod tests {
         let (sdr_planet_to_orc, rcv_planet_to_orc) = mpsc::channel::<PlanetToOrchestrator>();
         let (sdr_orc_to_planet, rcv_orc_to_planet) = mpsc::channel::<OrchestratorToPlanet>();
 
-        let planet = Planet::new(0, PlanetType::C, ia, gene, compl, (rcv_orc_to_planet, sdr_planet_to_orc), (rcv_expl_to_planet, sdr_planet_to_expl));
-        sdr_orc_to_planet.send(OrchestratorToPlanet::StartPlanetAI(StartPlanetAiMsg));
+        let planet = Planet::new(0, PlanetType::C, Box::new(ia), gene, compl, (rcv_orc_to_planet, sdr_planet_to_orc), (rcv_expl_to_planet, sdr_planet_to_expl));
+        sdr_orc_to_planet.send(OrchestratorToPlanet::StartPlanetAI);
         let t1 = thread::spawn(move ||{
             planet.unwrap().run();
         });
@@ -83,7 +85,8 @@ mod tests {
     ///Sends an asteroid to the planet and checks that the planet responde with a none
     fn test_asteroid_with_no_rocket() {
         let mut planet = spawn_planet();
-        planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(Asteroid::new()));
+        let generator = common_game::components::generator::Generator::new();
+        planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(generator.unwrap().generate_asteroid()));
         let res = planet.rcv_planet_to_orc.recv();
         match res {
             Ok(msg) => {
@@ -101,8 +104,9 @@ mod tests {
     ///Sends a sunray to the planet, that makes a rocket with it, later it sends an asteroid and we check if che planet respond with a rocket
     fn test_asteroid_with_rocket() {
         let planet = spawn_planet();
-        planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(Sunray::new()));
-        planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(Asteroid::new()));
+        let generator = common_game::components::generator::Generator::new();
+        planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(generator.as_ref().unwrap().generate_sunray()));
+        planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(generator.as_ref().unwrap().generate_asteroid()));
         let res = planet.rcv_planet_to_orc.recv();
         let res = planet.rcv_planet_to_orc.recv();
         match res {

@@ -62,7 +62,11 @@ impl planet::PlanetAI for PlanetAI {
                     })
                 }
                 OrchestratorToPlanet::OutgoingExplorerRequest { .. } => {
-                    todo!()
+                    self.has_explorer = false;
+                    Some(PlanetToOrchestrator::OutgoingExplorerResponse {
+                        planet_id: state.id(),
+                        res: Ok(()),
+                    })
                 }
             }
         }
