@@ -146,28 +146,46 @@ mod tests {
         }
     }
 
-    #[test]
-    fn ask_for_planet_available_energy_cell() {
-        let planet = spawn_planet();
-        let _ = planet.snd_exp_to_planet.send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
-        let res = planet.rcv_planet_to_exp.recv();
+    fn match_available_energy_cell_response(res: Result<PlanetToExplorer, RecvError>) -> i32 {
         match res {
             Ok(msg) => {
                 match msg {
                     PlanetToExplorer::AvailableEnergyCellResponse { available_cells } => {
-                        println!("Available energy cells: {:?}", available_cells);
-                        assert_eq!(1, available_cells);
+                        available_cells as i32
                     }
-                    _ => {
-                        println!("Wrong response");
-                        assert_eq!(1, 2);
-                    }
+                    _ => -1
                 }
             }
-            Err(_) => {
-                println!("Result error");
+            Err(err) => {
+                println!("Result error: {}", err);
+                -1
             }
         }
+    }
+
+    #[test]
+    fn ask_for_planet_available_energy_cell() {
+        let planet = spawn_planet();
+        let generator = Generator::new();
+
+        // Test with no sunray received
+        let _ = planet.snd_exp_to_planet.send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
+        let mut res = planet.rcv_planet_to_exp.recv();
+        assert_eq!(match_available_energy_cell_response(res), 0);
+
+
+        // Test with 1 sunray received -> rocket was build -> expected 0
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(generator.as_ref().unwrap().generate_sunray()));
+        let _ = planet.snd_exp_to_planet.send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
+        res = planet.rcv_planet_to_exp.recv();
+        assert_eq!(match_available_energy_cell_response(res), 0);
+
+        // Test with 2 sunray received -> rocket + 1 charge -> expected 1
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(generator.as_ref().unwrap().generate_sunray())); // Rocket built
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(generator.as_ref().unwrap().generate_sunray())); // EnergyCell built
+        let _ = planet.snd_exp_to_planet.send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
+        res = planet.rcv_planet_to_exp.recv();
+        assert_eq!(match_available_energy_cell_response(res), 1);
     }
 
     #[test]
