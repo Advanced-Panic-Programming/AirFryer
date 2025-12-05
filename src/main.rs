@@ -1,17 +1,19 @@
 mod air_frier;
 
-use std::sync::mpsc;
 use common_game::components::planet::{Planet, PlanetType};
 use common_game::components::resource::{BasicResourceType, ComplexResourceType};
-use common_game::protocols::messages::{ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator};
+use common_game::protocols::messages::{
+    ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
+};
+use std::sync::mpsc;
 fn main() {
     //New AI
     let ia = air_frier::PlanetAI::new();
 
-    let mut gene:Vec<BasicResourceType> = Vec::new();
+    let mut gene: Vec<BasicResourceType> = Vec::new();
     gene.push(BasicResourceType::Carbon);
 
-    let mut compl:Vec<ComplexResourceType> = Vec::new();
+    let mut compl: Vec<ComplexResourceType> = Vec::new();
     compl.push(ComplexResourceType::Water);
     compl.push(ComplexResourceType::Life);
     compl.push(ComplexResourceType::Dolphin);
@@ -23,37 +25,45 @@ fn main() {
     let (sdr_planet_to_orc, rcv_planet_to_orc) = mpsc::channel::<PlanetToOrchestrator>();
     let (sdr_orc_to_planet, rcv_orc_to_planet) = mpsc::channel::<OrchestratorToPlanet>();
 
-    let planet = Planet::new(0, PlanetType::C, ia, gene, compl, (rcv_orc_to_planet, sdr_planet_to_orc), (rcv_expl_to_planet, sdr_planet_to_expl));
-    if planet.is_ok(){
+    let planet = Planet::new(
+        0,
+        PlanetType::C,
+        Box::new(ia),
+        gene,
+        compl,
+        (rcv_orc_to_planet, sdr_planet_to_orc),
+        rcv_expl_to_planet,
+    );
+    if planet.is_ok() {
         planet.unwrap().run();
     }
     //Planet::new(0, PlanetType::C, (), vec![], vec![], ((), ()), ((), ()));
-
 }
 #[cfg(test)]
 mod tests {
-    use std::thread;
-    use std::thread::sleep;
-    use std::time::Duration;
+    use super::*;
     use common_game::components::asteroid::Asteroid;
     use common_game::components::sunray::Sunray;
     use common_game::protocols::messages::OrchestratorToPlanet::Asteroid as OtherAsteroid;
-    use common_game::protocols::messages::StartPlanetAiMsg;
     use log::log;
-    use super::*;
-    struct TestContext{
-        snd_orc_to_planet: mpsc::Sender<OrchestratorToPlanet>,
-        snd_exp_to_planet: mpsc::Sender<ExplorerToPlanet>,
-        rcv_planet_to_exp: mpsc::Receiver<PlanetToExplorer>,
-        rcv_planet_to_orc: mpsc::Receiver<PlanetToOrchestrator>,
+    use std::path::{Component, Components};
+    use std::thread;
+    use std::thread::sleep;
+    use std::time::Duration;
+    pub struct TestContext {
+        pub snd_orc_to_planet: mpsc::Sender<OrchestratorToPlanet>,
+        pub snd_exp_to_planet: mpsc::Sender<ExplorerToPlanet>,
+        pub snd_planet_to_exp: mpsc::Sender<PlanetToExplorer>,
+        pub rcv_planet_to_exp: mpsc::Receiver<PlanetToExplorer>,
+        pub rcv_planet_to_orc: mpsc::Receiver<PlanetToOrchestrator>,
     }
-    fn spawn_planet() -> TestContext{
+    fn spawn_planet() -> TestContext {
         let ia = air_frier::PlanetAI::new();
 
-        let mut gene:Vec<BasicResourceType> = Vec::new();
+        let mut gene: Vec<BasicResourceType> = Vec::new();
         gene.push(BasicResourceType::Carbon);
 
-        let mut compl:Vec<ComplexResourceType> = Vec::new();
+        let mut compl: Vec<ComplexResourceType> = Vec::new();
         compl.push(ComplexResourceType::Water);
         compl.push(ComplexResourceType::Life);
         compl.push(ComplexResourceType::Dolphin);
@@ -65,15 +75,24 @@ mod tests {
         let (sdr_planet_to_orc, rcv_planet_to_orc) = mpsc::channel::<PlanetToOrchestrator>();
         let (sdr_orc_to_planet, rcv_orc_to_planet) = mpsc::channel::<OrchestratorToPlanet>();
 
-        let planet = Planet::new(0, PlanetType::C, ia, gene, compl, (rcv_orc_to_planet, sdr_planet_to_orc), (rcv_expl_to_planet, sdr_planet_to_expl));
-        sdr_orc_to_planet.send(OrchestratorToPlanet::StartPlanetAI(StartPlanetAiMsg));
-        let t1 = thread::spawn(move ||{
+        let planet = Planet::new(
+            0,
+            PlanetType::C,
+            Box::new(ia),
+            gene,
+            compl,
+            (rcv_orc_to_planet, sdr_planet_to_orc),
+            rcv_expl_to_planet,
+        );
+        sdr_orc_to_planet.send(OrchestratorToPlanet::StartPlanetAI);
+        let t1 = thread::spawn(move || {
             planet.unwrap().run();
         });
         sleep(Duration::from_millis(10));
-        TestContext{
+        TestContext {
             snd_orc_to_planet: sdr_orc_to_planet,
             snd_exp_to_planet: sdr_expl_to_planet,
+            snd_planet_to_exp: sdr_planet_to_expl,
             rcv_planet_to_orc: rcv_planet_to_orc,
             rcv_planet_to_exp: rcv_planet_to_expl,
         }
@@ -83,17 +102,23 @@ mod tests {
     ///Sends an asteroid to the planet and checks that the planet responde with a none
     fn test_asteroid_with_no_rocket() {
         let mut planet = spawn_planet();
-        planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(Asteroid::new()));
+        let generator = common_game::components::generator::Generator::new();
+        planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::Asteroid(
+                generator.unwrap().generate_asteroid(),
+            ));
         let res = planet.rcv_planet_to_orc.recv();
         match res {
-            Ok(msg) => {
-                match msg{
-                    PlanetToOrchestrator::AsteroidAck { planet_id: _, rocket: r } => {
-                        assert!(r.is_none());
-                    }
-                    _=>{}
+            Ok(msg) => match msg {
+                PlanetToOrchestrator::AsteroidAck {
+                    planet_id: _,
+                    rocket: r,
+                } => {
+                    assert!(r.is_none());
                 }
-            }
+                _ => {}
+            },
             Err(_) => {}
         }
     }
@@ -101,70 +126,164 @@ mod tests {
     ///Sends a sunray to the planet, that makes a rocket with it, later it sends an asteroid and we check if che planet respond with a rocket
     fn test_asteroid_with_rocket() {
         let planet = spawn_planet();
-        planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(Sunray::new()));
-        planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(Asteroid::new()));
-        let res = planet.rcv_planet_to_orc.recv();
+        let generator = common_game::components::generator::Generator::new();
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
+            generator.as_ref().unwrap().generate_sunray(),
+        ));
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::Asteroid(
+                generator.unwrap().generate_asteroid(),
+            ));
+        let _ = planet.rcv_planet_to_orc.recv();
         let res = planet.rcv_planet_to_orc.recv();
         match res {
-            Ok(msg) => {
-                match msg {
-                    PlanetToOrchestrator::AsteroidAck {planet_id: _, rocket: r } => {
-                        assert!(r.is_some());
-                    }
-                    _=>{}
+            Ok(msg) => match msg {
+                PlanetToOrchestrator::AsteroidAck {
+                    planet_id: _,
+                    rocket: r,
+                } => {
+                    assert!(r.is_some());
                 }
-
-            }
+                _ => {}
+            },
             Err(_) => {
                 assert!(false);
             }
         }
-
     }
     #[test]
     fn ask_for_carbon_from_explorer() {
         let planet = spawn_planet();
-        planet.snd_exp_to_planet.send(ExplorerToPlanet::GenerateResourceRequest { explorer_id: 0, resource: BasicResourceType::Carbon });
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::IncomingExplorerRequest {
+                explorer_id: 0,
+                new_mpsc_sender: planet.snd_planet_to_exp,
+            });
+        let _ = planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::GenerateResourceRequest {
+                explorer_id: 0,
+                resource: BasicResourceType::Carbon,
+            });
         let res = planet.rcv_planet_to_exp.recv();
-        match res{
-            Ok(msg)=>{
-                match msg {
-                    PlanetToExplorer::GenerateResourceResponse {resource} => {
-                        if resource.is_some(){
-                            println!("Resource generated successfully!");
-                        }
-                        else {
-                            println!("Resource not generated!");
-                        }
+        match res {
+            Ok(msg) => match msg {
+                PlanetToExplorer::GenerateResourceResponse { resource } => {
+                    if resource.is_some() {
+                        println!("Resource generated successfully!");
+                        assert!(false);
+                    } else {
+                        println!("Resource not generated!");
                     }
-                    _ => {}
                 }
-            }
+                _ => {
+                    assert!(false);
+                }
+            },
             Err(_) => {
                 println!("Result error");
             }
-            _=> {}
         }
     }
-
+    #[test]
+    fn ask_for_hydrogen_from_explorer() {
+        let planet = spawn_planet();
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::IncomingExplorerRequest {
+                explorer_id: 0,
+                new_mpsc_sender: planet.snd_planet_to_exp,
+            });
+        let _ = planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::GenerateResourceRequest {
+                explorer_id: 0,
+                resource: BasicResourceType::Hydrogen,
+            });
+        let res = planet.rcv_planet_to_exp.recv();
+        match res {
+            Ok(msg) => match msg {
+                PlanetToExplorer::GenerateResourceResponse { resource } => {
+                    if resource.is_some() {
+                        println!("Resource generated successfully!");
+                        assert!(false);
+                    } else {
+                        println!("Resource not generated!");
+                    }
+                }
+                _ => {
+                    assert!(false);
+                }
+            },
+            Err(_) => {
+                println!("Result error");
+            }
+        }
+    }
+    #[test]
+    fn ask_for_carbon_with_energy() {
+        let planet = spawn_planet();
+        let generator = common_game::components::generator::Generator::new();
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::IncomingExplorerRequest {
+                explorer_id: 0,
+                new_mpsc_sender: planet.snd_planet_to_exp,
+            });
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
+            generator.as_ref().unwrap().generate_sunray(),
+        ));
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
+            generator.as_ref().unwrap().generate_sunray(),
+        ));
+        sleep(Duration::from_millis(100));
+        let _ = planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::GenerateResourceRequest {
+                explorer_id: 0,
+                resource: BasicResourceType::Carbon,
+            });
+        let res = planet.rcv_planet_to_exp.recv();
+        match res {
+            Ok(msg) => match msg {
+                PlanetToExplorer::GenerateResourceResponse { resource } => {
+                    if resource.is_some() {
+                        println!("Resource generated successfully!");
+                        assert!(true);
+                    } else {
+                        println!("Resource not generated!");
+                        assert!(false);
+                    }
+                }
+                _ => {
+                    assert!(false);
+                }
+            },
+            Err(_) => {
+                println!("Result error");
+            }
+        }
+    }
     #[test]
     fn ask_for_planet_available_energy_cell() {
         let planet = spawn_planet();
-        let _ = planet.snd_exp_to_planet.send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
+        let _ = planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
         let res = planet.rcv_planet_to_exp.recv();
         match res {
-            Ok(msg) => {
-                match msg {
-                    PlanetToExplorer::AvailableEnergyCellResponse { available_cells } => {
-                        println!("Available energy cells: {:?}", available_cells);
-                        assert_eq!(1, available_cells);
-                    }
-                    _ => {
-                        println!("Wrong response");
-                        assert_eq!(1, 2);
-                    }
+            Ok(msg) => match msg {
+                PlanetToExplorer::AvailableEnergyCellResponse { available_cells } => {
+                    println!("Available energy cells: {:?}", available_cells);
+                    assert_eq!(1, available_cells);
                 }
-            }
+                _ => {
+                    println!("Wrong response");
+                    assert!(false);
+                }
+            },
             Err(_) => {
                 println!("Result error");
             }
@@ -172,14 +291,12 @@ mod tests {
     }
 
     #[test]
-    fn multiple_start_ai_messages_are_ignored() {
-
-    }
+    fn multiple_start_ai_messages_are_ignored() {}
 
     #[test]
-    fn multiple_stop_ai_messages_are_ignored() {
-
-    }
+    fn multiple_stop_ai_messages_are_ignored() {}
+    #[test]
+    fn arrival_of_exploer() {}
+    #[test]
+    fn departure_of_explorer() {}
 }
-
-
