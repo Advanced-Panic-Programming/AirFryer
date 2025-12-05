@@ -1,11 +1,10 @@
 use std::collections::HashSet;
 use common_game::components::planet;
-use common_game::components::planet::{PlanetState};
+use common_game::components::planet::{PlanetState, PlanetType};
 use common_game::components::resource::{BasicResource, BasicResourceType, Combinator, ComplexResource, ComplexResourceRequest, ComplexResourceType, Generator};
 use common_game::components::rocket::Rocket;
+use common_game::components::sunray::Sunray;
 use common_game::protocols::messages::{ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator};
-
-
 pub struct PlanetAI{
     has_explorer : bool,
     started: bool,
@@ -13,7 +12,7 @@ pub struct PlanetAI{
 impl PlanetAI {
     pub fn new() -> PlanetAI {
         PlanetAI {
-            has_explorer : false,
+            has_explorer: false,
             started: false,
         }
     }
@@ -48,14 +47,16 @@ impl planet::PlanetAI for PlanetAI {
                         let _ = state.build_rocket(state.cells_count());
                         state.cell_mut(0).charge(sunray);
                     }
-                    Some(PlanetToOrchestrator::SunrayAck { planet_id: 0})
+                    Some(PlanetToOrchestrator::SunrayAck { planet_id: 0 })
                 }
                 OrchestratorToPlanet::Asteroid(asteroid) => {
                     Some(PlanetToOrchestrator::AsteroidAck {planet_id: state.id(), rocket: self.handle_asteroid(state, generator, combinator)})
                 }
                 OrchestratorToPlanet::StartPlanetAI => {
                     self.start(state);
-                    Some(PlanetToOrchestrator::StartPlanetAIResult {planet_id: state.id()})
+                    Some(PlanetToOrchestrator::StartPlanetAIResult {
+                        planet_id: state.id(),
+                    })
                 }
                 OrchestratorToPlanet::StopPlanetAI => {
                     self.stop(state);

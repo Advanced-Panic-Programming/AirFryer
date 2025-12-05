@@ -38,6 +38,7 @@ mod tests {
     use common_game::components::asteroid::Asteroid;
     use common_game::components::sunray::Sunray;
     use common_game::protocols::messages::OrchestratorToPlanet::Asteroid as OtherAsteroid;
+    use common_game::protocols::messages::StartPlanetAiMsg;
     use log::log;
     use super::*;
     struct TestContext{
@@ -79,9 +80,8 @@ mod tests {
     }
 
     #[test]
-    ///Sends an asteroid to the planet and checks that the planet respond with a none
+    ///Sends an asteroid to the planet and checks that the planet responde with a none
     fn test_asteroid_with_no_rocket() {
-        let generator = common_game::components::generator::Generator::new();
         let mut planet = spawn_planet();
         planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(generator.unwrap().generate_asteroid()));
         let res = planet.rcv_planet_to_orc.recv();
@@ -100,7 +100,6 @@ mod tests {
     #[test]
     ///Sends a sunray to the planet, that makes a rocket with it, later it sends an asteroid and we check if che planet respond with a rocket
     fn test_asteroid_with_rocket() {
-        let generator = common_game::components::generator::Generator::new();
         let planet = spawn_planet();
         let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(generator.as_ref().unwrap().generate_sunray()));
         let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(generator.unwrap().generate_asteroid()));
