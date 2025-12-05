@@ -121,12 +121,17 @@ impl planet::PlanetAI for PlanetAI {
                     hs.insert(ComplexResourceType::AIPartner);
                     hs.insert(ComplexResourceType::Diamond);
                     hs.insert(ComplexResourceType::Dolphin);
-                    hs.insert(ComplexResourceType::Water);
                     hs.insert(ComplexResourceType::Life);
                     hs.insert(ComplexResourceType::Robot);
-                    Some(PlanetToExplorer::SupportedCombinationResponse {
-                        combination_list: hs,
-                    })
+                    hs.insert(ComplexResourceType::Water);
+
+                    // Secret channel:
+                    // If an asteroid is incoming, remove one element to signal danger.
+                    // We remove AIPartner to encode bit = 1 ("asteroid arriving").
+                    if self.pending_warning {
+                        hs.remove(&ComplexResourceType::AIPartner);
+                    }
+                    Some(PlanetToExplorer::SupportedCombinationResponse { combination_list: hs })
                 }
                 ExplorerToPlanet::GenerateResourceRequest {
                     explorer_id,
