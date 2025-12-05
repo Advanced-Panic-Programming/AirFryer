@@ -31,14 +31,18 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use std::panic::resume_unwind;
+    use std::sync::mpsc::{Receiver, RecvError, Sender};
     use std::thread;
     use std::thread::sleep;
     use std::time::Duration;
-    use common_game::components::asteroid::Asteroid;
+    use common_game::components::generator;
     use common_game::components::generator::Generator;
-    use common_game::components::sunray::Sunray;
-    use common_game::protocols::messages::OrchestratorToPlanet::{Asteroid as OtherAsteroid};
+    use common_game::components::planet::{PlanetAI, PlanetState};
+    use common_game::components::resource::Combinator;
+    use common_game::protocols::messages::{ExplorerToOrchestrator, OrchestratorToExplorer};
     use super::*;
+
     struct TestContext{
         snd_orc_to_planet: mpsc::Sender<OrchestratorToPlanet>,
         snd_exp_to_planet: mpsc::Sender<ExplorerToPlanet>,
@@ -63,7 +67,7 @@ mod tests {
         let (sdr_planet_to_orc, rcv_planet_to_orc) = mpsc::channel::<PlanetToOrchestrator>();
         let (sdr_orc_to_planet, rcv_orc_to_planet) = mpsc::channel::<OrchestratorToPlanet>();
 
-        let planet = Planet::new(0, PlanetType::C, Box::new(ia), gene, compl, (rcv_orc_to_planet, sdr_planet_to_orc), (rcv_expl_to_planet, sdr_planet_to_expl));
+        let planet = Planet::new(0, PlanetType::C, Box::new(ia), gene, compl, (rcv_orc_to_planet, sdr_planet_to_orc.clone()), (rcv_expl_to_planet, sdr_planet_to_expl));
         sdr_orc_to_planet.send(OrchestratorToPlanet::StartPlanetAI);
         let t1 = thread::spawn(move ||{
             planet.unwrap().run();
@@ -189,44 +193,75 @@ mod tests {
     }
 
     #[test]
-    fn asteroid_warning_and_delayed_ack() {
-        let ctx = spawn_planet();
+    fn explorer_detects_no_asteroid_from_supported_combinations() {
+        let planet = spawn_planet();
 
-        // Send asteroid to planet
-        let generator = common_game::components::generator::Generator::new();
-        let _ = ctx.snd_orc_to_planet
-            .send(OrchestratorToPlanet::Asteroid(generator.unwrap().generate_asteroid()));
-
-        // The ACK must NOT be sent immediately (planet delays it)
-        assert!(ctx.rcv_planet_to_orc.recv_timeout(Duration::from_millis(10)).is_err(),
-                "ACK arrived too early (delay not respected)");
-
-        // Explorer sends any request planet uses this opportunity to send the secret warning
-        ctx.snd_exp_to_planet
-            .send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 })
+        // Explorer asks normally
+        planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::SupportedCombinationRequest { explorer_id: 0 })
             .unwrap();
 
-        let expl_msg = ctx.rcv_planet_to_exp.recv().unwrap();
-        match expl_msg {
-            PlanetToExplorer::AvailableEnergyCellResponse { available_cells } => {
-                assert_eq!(available_cells, 0, "Explorer did not receive asteroid warning");
+        let msg = planet.rcv_planet_to_exp.recv().unwrap();
+
+        match msg {
+            PlanetToExplorer::SupportedCombinationResponse { combination_list } => {
+                println!("Combination list: {:?}", combination_list);
+
+                // Full set size must be exactly 6
+                assert_eq!(combination_list.len(), 6);
+
+                // Explorer-side "decoder"
+                let asteroid_detected = combination_list.len() != 6;
+
+                assert!(!asteroid_detected, "Explorer incorrectly detected asteroid");
             }
-            _ => panic!("Wrong message sent to explorer, expected AvailableEnergyCellResponse"),
+            _ => panic!("Wrong response type"),
+        }
+    }
+
+    #[test]
+    fn explorer_detects_asteroid_from_supported_combinations() {
+        let planet = spawn_planet();
+        let generator = Generator::new();
+
+        // Send Asteroid
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(generator.unwrap().generate_asteroid()));
+
+        // Receive ACK
+        let ack = planet.rcv_planet_to_orc.recv().unwrap();
+        match ack {
+            PlanetToOrchestrator::AsteroidAck { rocket, .. } => {
+                if rocket.is_some() {
+                    println!("Received asteroid ACK, with rocket");
+                } else {
+                    println!("Received asteroid ACK, without rocket");
+                }
+            }
+            _ => panic!("Expected AsteroidAck"),
         }
 
-        // Next tick → the delayed ACK MUST now arrive
-        let ack = ctx.rcv_planet_to_orc.recv_timeout(Duration::from_millis(20))
-            .expect("Delayed ACK not received");
+        // 2. Now the explorer sends the SupportedCombinationRequest
+        planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::SupportedCombinationRequest { explorer_id: 0 })
+            .unwrap();
 
-        // Validate the ACK
-        match ack {
-            PlanetToOrchestrator::AsteroidAck { planet_id: _, rocket } => {
-                assert!(
-                    rocket.is_none(),
-                    "Planet incorrectly claimed to have a rocket (expected None)"
-                );
+        let msg = planet.rcv_planet_to_exp.recv().unwrap();
+
+        match msg {
+            PlanetToExplorer::SupportedCombinationResponse { combination_list } => {
+                println!("Combination list after asteroid: {:?}", combination_list);
+
+                // When asteroid is pending, planet should REMOVE one item → len = 5
+                assert_eq!(combination_list.len(), 5);
+
+                // Explorer-side decoding:
+                let asteroid_detected = combination_list.len() != 6;
+
+                assert!(asteroid_detected, "Explorer failed to detect asteroid");
             }
-            _ => panic!("Received wrong message instead of AsteroidAck"),
+            _ => panic!("Wrong response type"),
         }
     }
 
