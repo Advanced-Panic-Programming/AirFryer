@@ -65,10 +65,16 @@ impl planet::PlanetAI for PlanetAI {
                     }
                     Some(PlanetToOrchestrator::SunrayAck { planet_id: 0 })
                 }
-                OrchestratorToPlanet::Asteroid(asteroid) => {
+                OrchestratorToPlanet::Asteroid(_) => {
+                    // Set asteroid flag and prepare one-cycle warning for explorer
+                    self.pending_asteroid = true;
+                    self.pending_warning = true;
+
+                    // Try to build the rocket
+                    let rocket = self.handle_asteroid(state, generator, combinator);
                     Some(PlanetToOrchestrator::AsteroidAck {
                         planet_id: state.id(),
-                        rocket: self.handle_asteroid(state, generator, combinator),
+                        rocket
                     })
                 }
                 OrchestratorToPlanet::StartPlanetAI => {
