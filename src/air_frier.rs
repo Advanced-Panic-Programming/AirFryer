@@ -145,7 +145,11 @@ impl planet::PlanetAI for PlanetAI {
                 todo!()
             }
             ExplorerToPlanet::AvailableEnergyCellRequest { .. } => {
-                Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: state.cells_count() as u32 })
+                if state.cell(0).is_charged() {
+                    Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: 1u32 })
+                } else {
+                    Some(PlanetToExplorer::AvailableEnergyCellResponse { available_cells: 0u32 })
+                }
             }
         }
     }
