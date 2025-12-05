@@ -43,6 +43,9 @@ fn main() {
 mod tests {
     use super::*;
     use common_game::components::asteroid::Asteroid;
+    use common_game::components::energy_cell::{self, EnergyCell};
+    use common_game::components::generator::Generator;
+    use common_game::components::resource::{BasicResource, Combinator, Hydrogen, Oxygen, Water};
     use common_game::components::sunray::Sunray;
     use common_game::protocols::messages::OrchestratorToPlanet::Asteroid as OtherAsteroid;
     use log::log;
@@ -113,9 +116,10 @@ mod tests {
             Ok(msg) => match msg {
                 PlanetToOrchestrator::AsteroidAck {
                     planet_id: _,
-                    rocket: r,
+                    destroyed,
                 } => {
-                    assert!(r.is_none());
+                    // assert!(r.is_none());
+                    todo!()
                 }
                 _ => {}
             },
@@ -141,9 +145,10 @@ mod tests {
             Ok(msg) => match msg {
                 PlanetToOrchestrator::AsteroidAck {
                     planet_id: _,
-                    rocket: r,
+                    destroyed,
                 } => {
-                    assert!(r.is_some());
+                    // assert!(r.is_some());
+                    todo!()
                 }
                 _ => {}
             },
@@ -266,6 +271,68 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn ask_for_water_from_explorer_success() {
+        let planet = spawn_planet();
+
+        let generator_ast_sry = common_game::components::generator::Generator::new();
+
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::IncomingExplorerRequest {
+                explorer_id: 0,
+                new_mpsc_sender: planet.snd_planet_to_exp,
+            });
+
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
+            generator_ast_sry.as_ref().unwrap().generate_sunray(),
+        ));
+
+        // NOTE: our planet can only produce carbon, so we're
+        // simulating the fact that the explorer has collected
+        // the required resources from other planets
+        // FIX: how can I generate basic resources without having the 'add' (pub for the
+        // "common_crate") for the 'generator_resources'?
+        let generator_resources = common_game::components::resource::Generator::new();
+        let mut energy_cell = EnergyCell::new();
+
+        let sunray = generator_ast_sry.as_ref().unwrap().generate_sunray();
+        energy_cell.charge(sunray);
+        let hydrogen = generator_resources.make_hydrogen(&mut energy_cell).unwrap();
+
+        let sunray = generator_ast_sry.as_ref().unwrap().generate_sunray();
+        energy_cell.charge(sunray);
+        let oxygen = generator_resources.make_oxygen(&mut energy_cell).unwrap();
+
+        let _ = planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::CombineResourceRequest {
+                explorer_id: 0,
+                msg: common_game::components::resource::ComplexResourceRequest::Water(hydrogen, oxygen) ,
+            });
+
+        sleep(Duration::from_millis(100));
+
+        let response = planet.rcv_planet_to_exp.recv();
+        match response {
+            Ok(msg) => match msg {
+                PlanetToExplorer::CombineResourceResponse { complex_response } => {
+                    match complex_response {
+                        Ok(_water) => (), // TODO: some kind of test?
+                        Err(_) => panic!("Test failed, we haven't received the water"),
+                    }
+                }
+                _ => {
+                    panic!("The 'msg' have an error")
+                }
+            },
+            Err(_) => {
+                panic!("The 'response' have an error")
+            }
+        }
+    }
+
     #[test]
     fn ask_for_planet_available_energy_cell() {
         let planet = spawn_planet();
