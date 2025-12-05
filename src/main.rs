@@ -47,9 +47,12 @@ mod tests {
     use common_game::protocols::messages::OrchestratorToPlanet::Asteroid as OtherAsteroid;
     use log::log;
     use std::path::{Component, Components};
+    use std::sync::mpsc::RecvError;
     use std::thread;
     use std::thread::sleep;
     use std::time::Duration;
+    use common_game::components::generator::Generator;
+
     pub struct TestContext {
         pub snd_orc_to_planet: mpsc::Sender<OrchestratorToPlanet>,
         pub snd_exp_to_planet: mpsc::Sender<ExplorerToPlanet>,
@@ -266,27 +269,119 @@ mod tests {
             }
         }
     }
+
+    fn match_available_energy_cell_response(res: Result<PlanetToExplorer, RecvError>) -> i32 {
+        match res {
+            Ok(msg) => {
+                match msg {
+                    PlanetToExplorer::AvailableEnergyCellResponse { available_cells } => {
+                        available_cells as i32
+                    }
+                    _ => -1
+                }
+            }
+            Err(err) => {
+                println!("Result error: {}", err);
+                -1
+            }
+        }
+    }
+
     #[test]
     fn ask_for_planet_available_energy_cell() {
         let planet = spawn_planet();
-        let _ = planet
+        let generator = Generator::new();
+
+        // Test with no sunray received
+        let _ = planet.snd_exp_to_planet.send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
+        let mut res = planet.rcv_planet_to_exp.recv();
+        assert_eq!(match_available_energy_cell_response(res), 0);
+
+
+        // Test with 1 sunray received -> rocket was build -> expected 0
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(generator.as_ref().unwrap().generate_sunray()));
+        let _ = planet.snd_exp_to_planet.send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
+        res = planet.rcv_planet_to_exp.recv();
+        assert_eq!(match_available_energy_cell_response(res), 0);
+
+        // Test with 2 sunray received -> rocket + 1 charge -> expected 1
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(generator.as_ref().unwrap().generate_sunray())); // Rocket built
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(generator.as_ref().unwrap().generate_sunray())); // EnergyCell built
+        let _ = planet.snd_exp_to_planet.send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
+        res = planet.rcv_planet_to_exp.recv();
+        assert_eq!(match_available_energy_cell_response(res), 1);
+    }
+
+    #[test]
+    fn explorer_detects_no_asteroid_from_supported_combinations() {
+        let planet = spawn_planet();
+
+        // Explorer asks normally
+        planet
             .snd_exp_to_planet
-            .send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
-        let res = planet.rcv_planet_to_exp.recv();
-        match res {
-            Ok(msg) => match msg {
-                PlanetToExplorer::AvailableEnergyCellResponse { available_cells } => {
-                    println!("Available energy cells: {:?}", available_cells);
-                    assert_eq!(1, available_cells);
-                }
-                _ => {
-                    println!("Wrong response");
-                    assert!(false);
-                }
-            },
-            Err(_) => {
-                println!("Result error");
+            .send(ExplorerToPlanet::SupportedCombinationRequest { explorer_id: 0 })
+            .unwrap();
+
+        let msg = planet.rcv_planet_to_exp.recv().unwrap();
+
+        match msg {
+            PlanetToExplorer::SupportedCombinationResponse { combination_list } => {
+                println!("Combination list: {:?}", combination_list);
+
+                // Full set size must be exactly 6
+                assert_eq!(combination_list.len(), 6);
+
+                // Explorer-side "decoder"
+                let asteroid_detected = combination_list.len() != 6;
+
+                assert!(!asteroid_detected, "Explorer incorrectly detected asteroid");
             }
+            _ => panic!("Wrong response type"),
+        }
+    }
+
+    #[test]
+    fn explorer_detects_asteroid_from_supported_combinations() {
+        let planet = spawn_planet();
+        let generator = Generator::new();
+
+        // Send Asteroid
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(generator.unwrap().generate_asteroid()));
+
+        // Receive ACK
+        let ack = planet.rcv_planet_to_orc.recv().unwrap();
+        match ack {
+            PlanetToOrchestrator::AsteroidAck { rocket, .. } => {
+                if rocket.is_some() {
+                    println!("Received asteroid ACK, with rocket");
+                } else {
+                    println!("Received asteroid ACK, without rocket");
+                }
+            }
+            _ => panic!("Expected AsteroidAck"),
+        }
+
+        // 2. Now the explorer sends the SupportedCombinationRequest
+        planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::SupportedCombinationRequest { explorer_id: 0 })
+            .unwrap();
+
+        let msg = planet.rcv_planet_to_exp.recv().unwrap();
+
+        match msg {
+            PlanetToExplorer::SupportedCombinationResponse { combination_list } => {
+                println!("Combination list after asteroid: {:?}", combination_list);
+
+                // When asteroid is pending, planet should REMOVE one item → len = 5
+                assert_eq!(combination_list.len(), 5);
+
+                // Explorer-side decoding:
+                let asteroid_detected = combination_list.len() != 6;
+
+                assert!(asteroid_detected, "Explorer failed to detect asteroid");
+            }
+            _ => panic!("Wrong response type"),
         }
     }
 
