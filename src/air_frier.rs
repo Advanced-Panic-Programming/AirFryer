@@ -31,6 +31,7 @@ impl planet::PlanetAI for PlanetAI {
         if self.started {
             match msg {
                 OrchestratorToPlanet::Sunray(sunray) => {
+                    //Cambiare lo scenario in cui sia presente l'espolatore in modo da tenere solo la cella carica indipendentemente dal razzo
                     if ! state.cell(0).is_charged() {
 
                         state.cell_mut(0).charge(sunray);
@@ -43,6 +44,7 @@ impl planet::PlanetAI for PlanetAI {
                         }
                     }
                     else{
+                        //Definire meglio e gestire error in caso ci sia già un rocket
                         let _ = state.build_rocket(state.cells_count());
                         state.cell_mut(0).charge(sunray);
                     }
@@ -60,6 +62,7 @@ impl planet::PlanetAI for PlanetAI {
                     Some(PlanetToOrchestrator::StopPlanetAIResult {planet_id: state.id()})
                 }
                 OrchestratorToPlanet::InternalStateRequest => {
+
                     todo!() //Michele
                 },
                 OrchestratorToPlanet::IncomingExplorerRequest { .. } =>{
