@@ -143,7 +143,6 @@ mod tests {
             Err(_) => {
                 println!("Result error");
             }
-            _=> {}
         }
     }
 
