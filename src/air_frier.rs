@@ -135,6 +135,7 @@ impl planet::PlanetAI for PlanetAI {
                             Some(PlanetToExplorer::GenerateResourceResponse {resource: Some(BasicResource::Carbon(carbon))})
                         }
                         Err(string) => {
+                            println!("GenerateResourceRequest error: {}", string);
                             Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
                         }
                     }
