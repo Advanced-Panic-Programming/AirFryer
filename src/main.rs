@@ -28,7 +28,7 @@ fn main() {
     let planet = Planet::new(
         0,
         PlanetType::C,
-        ia,
+        Box::new(ia),
         gene,
         compl,
         (rcv_orc_to_planet, sdr_planet_to_orc),
@@ -45,7 +45,6 @@ mod tests {
     use common_game::components::asteroid::Asteroid;
     use common_game::components::sunray::Sunray;
     use common_game::protocols::messages::OrchestratorToPlanet::Asteroid as OtherAsteroid;
-    use common_game::protocols::messages::StartPlanetAiMsg;
     use log::log;
     use std::thread;
     use std::thread::sleep;
@@ -77,13 +76,13 @@ mod tests {
         let planet = Planet::new(
             0,
             PlanetType::C,
-            ia,
+            Box::new(ia),
             gene,
             compl,
             (rcv_orc_to_planet, sdr_planet_to_orc),
             (rcv_expl_to_planet, sdr_planet_to_expl),
         );
-        sdr_orc_to_planet.send(OrchestratorToPlanet::StartPlanetAI(StartPlanetAiMsg));
+        sdr_orc_to_planet.send(OrchestratorToPlanet::StartPlanetAI);
         let t1 = thread::spawn(move || {
             planet.unwrap().run();
         });
@@ -100,9 +99,10 @@ mod tests {
     ///Sends an asteroid to the planet and checks that the planet responde with a none
     fn test_asteroid_with_no_rocket() {
         let mut planet = spawn_planet();
+        let generator = common_game::components::generator::Generator::new();
         planet
             .snd_orc_to_planet
-            .send(OrchestratorToPlanet::Asteroid(Asteroid::new()));
+            .send(OrchestratorToPlanet::Asteroid(generator.as_ref().unwrap().generate_asteroid()));
         let res = planet.rcv_planet_to_orc.recv();
         match res {
             Ok(msg) => match msg {
@@ -121,12 +121,13 @@ mod tests {
     ///Sends a sunray to the planet, that makes a rocket with it, later it sends an asteroid and we check if che planet respond with a rocket
     fn test_asteroid_with_rocket() {
         let planet = spawn_planet();
+        let generator = common_game::components::generator::Generator::new();
         planet
             .snd_orc_to_planet
-            .send(OrchestratorToPlanet::Sunray(Sunray::new()));
+            .send(OrchestratorToPlanet::Sunray(generator.as_ref().unwrap().generate_sunray()));
         planet
             .snd_orc_to_planet
-            .send(OrchestratorToPlanet::Asteroid(Asteroid::new()));
+            .send(OrchestratorToPlanet::Asteroid(generator.as_ref().unwrap().generate_asteroid()));
         let res = planet.rcv_planet_to_orc.recv();
         let res = planet.rcv_planet_to_orc.recv();
         match res {

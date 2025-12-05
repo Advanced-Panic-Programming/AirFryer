@@ -9,7 +9,6 @@ use common_game::protocols::messages::{
     ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
 };
 use std::collections::HashSet;
-use std::os::unix::raw::time_t;
 use std::time::SystemTime;
 pub struct PlanetAI {
     has_explorer: bool,
@@ -67,7 +66,10 @@ impl planet::PlanetAI for PlanetAI {
                     })
                 }
                 OrchestratorToPlanet::InternalStateRequest => {
-                    todo!()
+                    Some(PlanetToOrchestrator::InternalStateResponse {
+                        planet_id: state.id(),
+                        planet_state: todo!() , // Non è ancora possibile passare l'ownership di PlanetState
+                    })
                 }
                 OrchestratorToPlanet::IncomingExplorerRequest { .. } => {
                     todo!()
@@ -93,7 +95,7 @@ impl planet::PlanetAI for PlanetAI {
                 let mut hs = HashSet::new();
                 hs.insert(BasicResourceType::Carbon);
                 Some(PlanetToExplorer::SupportedResourceResponse {
-                    resource_list: Some(hs),
+                    resource_list: hs,
                 })
             }
             ExplorerToPlanet::SupportedCombinationRequest { explorer_id } => {
@@ -105,7 +107,7 @@ impl planet::PlanetAI for PlanetAI {
                 hs.insert(ComplexResourceType::Life);
                 hs.insert(ComplexResourceType::Robot);
                 Some(PlanetToExplorer::SupportedCombinationResponse {
-                    combination_list: Some(hs),
+                    combination_list: hs,
                 })
             }
             ExplorerToPlanet::GenerateResourceRequest {
