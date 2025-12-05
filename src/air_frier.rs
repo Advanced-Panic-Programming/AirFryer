@@ -13,12 +13,16 @@ use std::collections::HashSet;
 pub struct PlanetAI {
     has_explorer: bool,
     started: bool,
+    pending_warning: bool, // To warn the explorer
+    pending_asteroid: bool, // flag for a received asteroid
 }
 impl PlanetAI {
     pub fn new() -> PlanetAI {
         PlanetAI {
             has_explorer: false,
             started: false,
+            pending_warning: false,
+            pending_asteroid: false,
         }
     }
 }
@@ -160,17 +164,22 @@ impl planet::PlanetAI for PlanetAI {
         &mut self,
         state: &mut PlanetState,
         generator: &Generator,
-        combinator: &Combinator,
+        combinator: &Combinator
     ) -> Option<Rocket> {
         if state.has_rocket() {
-            Some(state.take_rocket()?)
-        } else {
-            // Error handling is done in the common-code trait implementation
-            // i.e. planet can have rocket, planet energy cell is charged, ...
-
-            // Try to build the rocket
-            let _ = state.build_rocket(state.cells_count());
+            // reset warning flags after using the rocket
+            self.pending_warning = false;
             state.take_rocket()
+        } else {
+            // Try to build a rocket
+            if state.build_rocket(0).is_ok() {
+                self.pending_warning = false;
+                return state.take_rocket();
+            }
+
+            // Couldn't build the rocket -> warn the explorer
+            self.pending_warning = true;
+            None
         }
     }
 
