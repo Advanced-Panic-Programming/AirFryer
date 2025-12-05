@@ -125,6 +125,7 @@ impl planet::PlanetAI for PlanetAI {
                 Some(PlanetToExplorer::SupportedCombinationResponse { combination_list: hs })
             }
             ExplorerToPlanet::GenerateResourceRequest {explorer_id, resource} => {
+                // Only Carbon can be generated on this planet
                 if resource != BasicResourceType::Carbon {
                     Some(PlanetToExplorer::GenerateResourceResponse {resource: None})
                 }
