@@ -375,7 +375,7 @@ use super::*;
                 }
             }
             _ => panic!("Expected AsteroidAck"),
-
+        }
     #[test]
     fn incoming_explorer() {
         let planet = spawn_planet();
@@ -410,29 +410,6 @@ use super::*;
     }
 }
 
-        // 2. Now the explorer sends the SupportedCombinationRequest
-        planet
-            .snd_exp_to_planet
-            .send(ExplorerToPlanet::SupportedCombinationRequest { explorer_id: 0 })
-            .unwrap();
-
-        let msg = planet.rcv_planet_to_exp.recv().unwrap();
-
-        match msg {
-            PlanetToExplorer::SupportedCombinationResponse { combination_list } => {
-                println!("Combination list after asteroid: {:?}", combination_list);
-
-                // When asteroid is pending, planet should REMOVE one item → len = 5
-                assert_eq!(combination_list.len(), 5);
-
-                // Explorer-side decoding:
-                let asteroid_detected = combination_list.len() != 6;
-
-                assert!(asteroid_detected, "Explorer failed to detect asteroid");
-            }
-            _ => panic!("Wrong response type"),
-        }
-    }
 
     #[test]
     fn multiple_start_ai_messages_are_ignored() {}
