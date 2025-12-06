@@ -99,10 +99,10 @@ mod tests {
     ///Sends an asteroid to the planet and checks that the planet responde with a none
     fn test_asteroid_with_no_rocket() {
         let mut planet = spawn_planet();
-        let generator = common_game::components::generator::Generator::new();
+        let forge = common_game::components::forge::Forge::new();
         planet
             .snd_orc_to_planet
-            .send(OrchestratorToPlanet::Asteroid(generator.as_ref().unwrap().generate_asteroid()));
+            .send(OrchestratorToPlanet::Asteroid(forge.as_ref().unwrap().generate_asteroid()));
         let res = planet.rcv_planet_to_orc.recv();
         match res {
             Ok(msg) => match msg {

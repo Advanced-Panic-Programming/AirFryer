@@ -5,9 +5,10 @@ version = 4
 [[package]]
 name = "common-game"
 version = "0.1.0"
-source = "git+ssh://git@github.com/unitn-ap-2025/common.git?branch=main#ffa9b9a860c4064d8cd7da93577a1386c2693588"
+source = "git+ssh://git@github.com/unitn-ap-2025/common.git?branch=main#98ff1b2c426bc809650b20c8759bb3ed832a7c7d"
 dependencies = [
  "lazy_static",
+ "log",
  "paste",
 ]
 

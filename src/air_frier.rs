@@ -68,7 +68,7 @@ impl planet::PlanetAI for PlanetAI {
                 OrchestratorToPlanet::InternalStateRequest => {
                     Some(PlanetToOrchestrator::InternalStateResponse {
                         planet_id: state.id(),
-                        planet_state: todo!() , // Non è ancora possibile passare l'ownership di PlanetState
+                        planet_state: state.to_dummy() ,
                     })
                 }
                 OrchestratorToPlanet::IncomingExplorerRequest { .. } => {
