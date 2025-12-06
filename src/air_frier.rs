@@ -1,7 +1,8 @@
 use common_game::components::planet;
 use common_game::components::planet::{PlanetState, PlanetType};
 use common_game::components::resource::{
-    BasicResource, BasicResourceType, Combinator, ComplexResourceType, Generator,
+    BasicResource, BasicResourceType, Combinator, ComplexResource, ComplexResourceRequest,
+    ComplexResourceType, Generator,
 };
 use common_game::components::rocket::Rocket;
 use common_game::components::sunray::Sunray;
@@ -9,16 +10,19 @@ use common_game::protocols::messages::{
     ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
 };
 use std::collections::HashSet;
-use std::time::SystemTime;
 pub struct PlanetAI {
     has_explorer: bool,
     started: bool,
+    pending_warning: bool,  // To warn the explorer
+    pending_asteroid: bool, // flag for a received asteroid
 }
 impl PlanetAI {
     pub fn new() -> PlanetAI {
         PlanetAI {
             has_explorer: false,
             started: false,
+            pending_warning: false,
+            pending_asteroid: false,
         }
     }
 }
@@ -30,27 +34,47 @@ impl planet::PlanetAI for PlanetAI {
         combinator: &Combinator,
         msg: OrchestratorToPlanet,
     ) -> Option<PlanetToOrchestrator> {
+        //If the planet is stopped, I check if the message i receive is the start message, else I return None
+        match msg {
+            OrchestratorToPlanet::StartPlanetAI => {
+                self.start(state);
+                PlanetToOrchestrator::StartPlanetAIResult {
+                    planet_id: state.id(),
+                };
+            }
+            _ => {}
+        }
         if self.started {
             match msg {
-                OrchestratorToPlanet::Sunray(Sunray) => {
+                OrchestratorToPlanet::Sunray(sunray) => {
+                    //Cambiare lo scenario in cui sia presente l'espolatore in modo da tenere solo la cella carica indipendentemente dal razzo
                     if !state.cell(0).is_charged() {
-                        state.cell_mut(0).charge(Sunray);
+                        state.cell_mut(0).charge(sunray);
 
                         if state.can_have_rocket() {
                             if !state.has_rocket() {
-                                state.build_rocket(0);
+                                let _ = state.build_rocket(0);
                             }
                         }
                     } else {
-                        state.build_rocket(0);
-                        state.cell_mut(0).charge(Sunray);
+                        //Definire meglio e gestire error in caso ci sia già un rocket
+                        if !state.has_rocket() {
+                            let _ = state.build_rocket(state.cells_count());
+                            state.cell_mut(0).charge(sunray);
+                        }
                     }
                     Some(PlanetToOrchestrator::SunrayAck { planet_id: 0 })
                 }
-                OrchestratorToPlanet::Asteroid(Asteroid) => {
+                OrchestratorToPlanet::Asteroid(_) => {
+                    // Set asteroid flag and prepare one-cycle warning for explorer
+                    self.pending_asteroid = true;
+                    self.pending_warning = true;
+
+                    // Try to build the rocket
+                    let rocket = self.handle_asteroid(state, generator, combinator);
                     Some(PlanetToOrchestrator::AsteroidAck {
                         planet_id: state.id(),
-                        rocket: self.handle_asteroid(state, generator, combinator),
+                        destroyed: false,
                     })
                 }
                 OrchestratorToPlanet::StartPlanetAI => {
@@ -69,13 +93,21 @@ impl planet::PlanetAI for PlanetAI {
                     Some(PlanetToOrchestrator::InternalStateResponse {
                         planet_id: state.id(),
                         planet_state: state.to_dummy(),
-                    })
+                    }) //Michele
                 }
                 OrchestratorToPlanet::IncomingExplorerRequest { .. } => {
-                    todo!()
+                    self.has_explorer = true;
+                    Some(PlanetToOrchestrator::IncomingExplorerResponse {
+                        planet_id: state.id(),
+                        res: Ok(()),
+                    }) //Michele
                 }
                 OrchestratorToPlanet::OutgoingExplorerRequest { .. } => {
-                    todo!()
+                    self.has_explorer = false;
+                    Some(PlanetToOrchestrator::OutgoingExplorerResponse {
+                        planet_id: state.id(),
+                        res: Ok(()),
+                    }) //?
                 }
             }
         } else {
@@ -90,52 +122,68 @@ impl planet::PlanetAI for PlanetAI {
         combinator: &Combinator,
         msg: ExplorerToPlanet,
     ) -> Option<PlanetToExplorer> {
-        match msg {
-            ExplorerToPlanet::SupportedResourceRequest { explorer_id } => {
-                let mut hs = HashSet::new();
-                hs.insert(BasicResourceType::Carbon);
-                Some(PlanetToExplorer::SupportedResourceResponse {
-                    resource_list: hs,
-                })
+        //Questo OK, l'altro no, pianeta non starta se
+        if self.started {
+            if !self.has_explorer {
+                self.has_explorer = true;
             }
-            ExplorerToPlanet::SupportedCombinationRequest { explorer_id } => {
-                let mut hs = HashSet::new();
-                hs.insert(ComplexResourceType::AIPartner);
-                hs.insert(ComplexResourceType::Diamond);
-                hs.insert(ComplexResourceType::Dolphin);
-                hs.insert(ComplexResourceType::Water);
-                hs.insert(ComplexResourceType::Life);
-                hs.insert(ComplexResourceType::Robot);
-                Some(PlanetToExplorer::SupportedCombinationResponse {
-                    combination_list: hs,
-                })
-            }
-            ExplorerToPlanet::GenerateResourceRequest {
-                explorer_id,
-                resource,
-            } => {
-                if resource != BasicResourceType::Carbon {
-                    Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
-                } else {
-                    let generated = generator.make_carbon(state.cell_mut(0));
-                    match generated {
-                        Ok(carbon) => Some(PlanetToExplorer::GenerateResourceResponse {
-                            resource: Some(BasicResource::Carbon(carbon)),
-                        }),
-                        Err(string) => {
-                            Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
+            match msg {
+                ExplorerToPlanet::SupportedResourceRequest { explorer_id } => {
+                    let mut hs = HashSet::new();
+                    hs.insert(BasicResourceType::Carbon);
+                    Some(PlanetToExplorer::SupportedResourceResponse { resource_list: hs })
+                }
+                ExplorerToPlanet::SupportedCombinationRequest { explorer_id } => {
+                    let mut hs = HashSet::new();
+                    hs.insert(ComplexResourceType::AIPartner);
+                    hs.insert(ComplexResourceType::Diamond);
+                    hs.insert(ComplexResourceType::Dolphin);
+                    hs.insert(ComplexResourceType::Life);
+                    hs.insert(ComplexResourceType::Robot);
+                    hs.insert(ComplexResourceType::Water);
+
+                    // Secret channel:
+                    // If an asteroid is incoming, remove one element to signal danger.
+                    // We remove AIPartner to encode bit = 1 ("asteroid arriving").
+                    if self.pending_warning {
+                        hs.remove(&ComplexResourceType::AIPartner);
+                    }
+                    Some(PlanetToExplorer::SupportedCombinationResponse {
+                        combination_list: hs,
+                    })
+                }
+                ExplorerToPlanet::GenerateResourceRequest {
+                    explorer_id,
+                    resource,
+                } => {
+                    if resource != BasicResourceType::Carbon {
+                        Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
+                    } else {
+                        let generated = generator.make_carbon(state.cell_mut(0));
+                        match generated {
+                            Ok(carbon) => Some(PlanetToExplorer::GenerateResourceResponse {
+                                resource: Some(BasicResource::Carbon(carbon)),
+                            }),
+                            Err(_) => {
+                                Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
+                            }
                         }
                     }
                 }
+                ExplorerToPlanet::CombineResourceRequest { explorer_id, msg } => {
+                    todo!()
+                }
+                ExplorerToPlanet::AvailableEnergyCellRequest { .. } => match state.full_cell() {
+                    Some(_) => Some(PlanetToExplorer::AvailableEnergyCellResponse {
+                        available_cells: 1u32,
+                    }),
+                    None => Some(PlanetToExplorer::AvailableEnergyCellResponse {
+                        available_cells: 0u32,
+                    }),
+                },
             }
-            ExplorerToPlanet::CombineResourceRequest { .. } => {
-                todo!()
-            }
-            ExplorerToPlanet::AvailableEnergyCellRequest { .. } => {
-                Some(PlanetToExplorer::AvailableEnergyCellResponse {
-                    available_cells: state.cells_count() as u32,
-                })
-            }
+        } else {
+            None
         }
     }
 
@@ -146,27 +194,31 @@ impl planet::PlanetAI for PlanetAI {
         combinator: &Combinator,
     ) -> Option<Rocket> {
         if state.has_rocket() {
-            Some(state.take_rocket()?)
-        } else {
-            // Error handling is done in the common-code trait implementation
-            // i.e. planet can have rocket, planet energy cell is charged, ...
-
-            // Try to build the rocket
-            let _ = state.build_rocket(state.cells_count());
+            // reset warning flags after using the rocket
+            self.pending_warning = false;
             state.take_rocket()
+        } else {
+            // Try to build a rocket
+            if state.build_rocket(0).is_ok() {
+                self.pending_warning = false;
+                return state.take_rocket();
+            }
+
+            // Couldn't build the rocket -> warn the explorer
+            self.pending_warning = true;
+            None
         }
     }
 
     fn start(&mut self, state: &PlanetState) {
-        //Manda messaggio per vedere se ha l'esploratore
-        //if -> true o false
         self.started = true;
+        self.has_explorer = false;
         //to do
     }
 
     fn stop(&mut self, state: &PlanetState) {
         self.started = false;
-
+        self.has_explorer = false;
         //to do
     }
 }
