@@ -25,15 +25,7 @@ fn main() {
     let (sdr_planet_to_orc, rcv_planet_to_orc) = mpsc::channel::<PlanetToOrchestrator>();
     let (sdr_orc_to_planet, rcv_orc_to_planet) = mpsc::channel::<OrchestratorToPlanet>();
 
-    let planet = Planet::new(
-        0,
-        PlanetType::C,
-        Box::new(ia),
-        gene,
-        compl,
-        (rcv_orc_to_planet, sdr_planet_to_orc),
-        rcv_expl_to_planet,
-    );
+    let planet = Planet::new(0, PlanetType::C, Box::new(ia), gene, rcv_expl_to_planet);
     if planet.is_ok() {
         planet.unwrap().run();
     }
@@ -42,17 +34,12 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common_game::components::asteroid::Asteroid;
-    use common_game::components::energy_cell::{self, EnergyCell};
-    use common_game::components::generator::Generator;
-    use common_game::components::resource::{BasicResource, Combinator, Hydrogen, Oxygen, Water};
-    use common_game::components::sunray::Sunray;
-    use common_game::protocols::messages::OrchestratorToPlanet::Asteroid as OtherAsteroid;
-    use log::log;
-    use std::path::{Component, Components};
-    use std::thread;
-    use std::thread::sleep;
-    use std::time::Duration;
+    use common_game::components;
+    use common_game::components::energy_cell::EnergyCell;
+    use std::{
+        thread::{self, sleep},
+        time::Duration,
+    };
     pub struct TestContext {
         pub snd_orc_to_planet: mpsc::Sender<OrchestratorToPlanet>,
         pub snd_exp_to_planet: mpsc::Sender<ExplorerToPlanet>,
@@ -105,7 +92,7 @@ mod tests {
     ///Sends an asteroid to the planet and checks that the planet responde with a none
     fn test_asteroid_with_no_rocket() {
         let mut planet = spawn_planet();
-        let generator = common_game::components::generator::Generator::new();
+        let generator = components::forge::Forge::new();
         planet
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::Asteroid(
@@ -130,7 +117,7 @@ mod tests {
     ///Sends a sunray to the planet, that makes a rocket with it, later it sends an asteroid and we check if che planet respond with a rocket
     fn test_asteroid_with_rocket() {
         let planet = spawn_planet();
-        let generator = common_game::components::generator::Generator::new();
+        let generator = components::forge::Forge::new();
         let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
             generator.as_ref().unwrap().generate_sunray(),
         ));
@@ -230,7 +217,7 @@ mod tests {
     #[test]
     fn ask_for_carbon_with_energy() {
         let planet = spawn_planet();
-        let generator = common_game::components::generator::Generator::new();
+        let generator = components::forge::Forge::new();
         let _ = planet
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::IncomingExplorerRequest {
@@ -276,7 +263,7 @@ mod tests {
     fn ask_for_water_from_explorer_success() {
         let planet = spawn_planet();
 
-        let generator_ast_sry = common_game::components::generator::Generator::new();
+        let generator_ast_sry = components::forge::Forge::new();
 
         let _ = planet
             .snd_orc_to_planet
@@ -294,7 +281,7 @@ mod tests {
         // the required resources from other planets
         // FIX: how can I generate basic resources without having the 'add' (pub for the
         // "common_crate") for the 'generator_resources'?
-        let generator_resources = common_game::components::resource::Generator::new();
+        let generator_resources = components::resource::Generator::new();
         let mut energy_cell = EnergyCell::new();
 
         let sunray = generator_ast_sry.as_ref().unwrap().generate_sunray();
@@ -309,7 +296,7 @@ mod tests {
             .snd_exp_to_planet
             .send(ExplorerToPlanet::CombineResourceRequest {
                 explorer_id: 0,
-                msg: common_game::components::resource::ComplexResourceRequest::Water(hydrogen, oxygen) ,
+                msg: components::resource::ComplexResourceRequest::Water(hydrogen, oxygen),
             });
 
         sleep(Duration::from_millis(100));
