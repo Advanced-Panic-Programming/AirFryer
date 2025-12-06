@@ -93,10 +93,18 @@ impl planet::PlanetAI for PlanetAI {
                     todo!() //Michele
                 }
                 OrchestratorToPlanet::IncomingExplorerRequest { .. } => {
-                    todo!() //Michele
+                    self.has_explorer = true;
+                    Some(PlanetToOrchestrator::IncomingExplorerResponse {
+                        planet_id: state.id(),
+                        res: Ok(()),
+                    }) //Michele
                 }
                 OrchestratorToPlanet::OutgoingExplorerRequest { .. } => {
-                    todo!() //?
+                    self.has_explorer = false;
+                    Some(PlanetToOrchestrator::OutgoingExplorerResponse {
+                        planet_id: state.id(),
+                        res: Ok(()),
+                    }) //?
                 }
             }
         } else {
