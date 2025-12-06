@@ -42,6 +42,7 @@ mod tests {
     use common_game::components::sunray::Sunray;
     use common_game::protocols::messages::OrchestratorToPlanet::Asteroid as OtherAsteroid;
     use log::log;
+    use crate::air_frier::PlanetAI;
     use super::*;
     struct TestContext{
         snd_orc_to_planet: mpsc::Sender<OrchestratorToPlanet>,
