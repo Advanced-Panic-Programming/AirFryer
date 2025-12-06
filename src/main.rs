@@ -33,10 +33,10 @@ fn main() {
 }
 #[cfg(test)]
 mod tests {
-    use common_game::components::resource::Generator;
-use super::*;
+    use super::*;
     use common_game::components::asteroid::Asteroid;
     use common_game::components::forge::Forge;
+    use common_game::components::resource::Generator;
     use common_game::components::sunray::Sunray;
     use common_game::protocols::messages::OrchestratorToPlanet::Asteroid as OtherAsteroid;
     use log::log;
@@ -111,7 +111,7 @@ use super::*;
                     planet_id: _,
                     destroyed: dest,
                 } => {
-                    assert_eq!(dest,true);
+                    assert_eq!(dest, true);
                 }
                 _ => {}
             },
@@ -139,7 +139,7 @@ use super::*;
                     planet_id: _,
                     destroyed: destr,
                 } => {
-                    assert_eq!(destr,false);
+                    assert_eq!(destr, false);
                 }
                 _ => {}
             },

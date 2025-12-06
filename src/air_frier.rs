@@ -74,7 +74,7 @@ impl planet::PlanetAI for PlanetAI {
                     let rocket = self.handle_asteroid(state, generator, combinator);
                     Some(PlanetToOrchestrator::AsteroidAck {
                         planet_id: state.id(),
-                        rocket,
+                        destroyed: false,
                     })
                 }
                 OrchestratorToPlanet::StartPlanetAI => {
