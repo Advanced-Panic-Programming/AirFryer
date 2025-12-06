@@ -1,3 +1,3 @@
 mod air_frier;
 use crate::air_frier::PlanetAI;
-mod resource_planet;
+mod mock_planet;

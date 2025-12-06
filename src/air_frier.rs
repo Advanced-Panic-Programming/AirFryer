@@ -115,65 +115,58 @@ impl planet::PlanetAI for PlanetAI {
             ExplorerToPlanet::SupportedResourceRequest { explorer_id } => {
                 let mut hs = HashSet::new();
                 hs.insert(BasicResourceType::Carbon);
-                Some(PlanetToExplorer::SupportedResourceResponse {
-                    resource_list: hs,
+                Some(PlanetToExplorer::SupportedResourceResponse { resource_list: hs })
+            }
+            ExplorerToPlanet::SupportedResourceRequest { explorer_id } => {
+                let mut hs = HashSet::new();
+                hs.insert(BasicResourceType::Carbon);
+                Some(PlanetToExplorer::SupportedResourceResponse { resource_list: hs })
+            }
+            ExplorerToPlanet::SupportedCombinationRequest { explorer_id } => {
+                let mut hs = HashSet::new();
+                hs.insert(ComplexResourceType::AIPartner);
+                hs.insert(ComplexResourceType::Diamond);
+                hs.insert(ComplexResourceType::Dolphin);
+                hs.insert(ComplexResourceType::Life);
+                hs.insert(ComplexResourceType::Robot);
+                hs.insert(ComplexResourceType::Water);
+
+                // Secret channel:
+                // If an asteroid is incoming, remove one element to signal danger.
+                // We remove AIPartner to encode bit = 1 ("asteroid arriving").
+                if self.pending_warning {
+                    hs.remove(&ComplexResourceType::AIPartner);
+                }
+                Some(PlanetToExplorer::SupportedCombinationResponse {
+                    combination_list: hs,
                 })
             }
-            match msg {
-                ExplorerToPlanet::SupportedResourceRequest { explorer_id } => {
-                    let mut hs = HashSet::new();
-                    hs.insert(BasicResourceType::Carbon);
-                    Some(PlanetToExplorer::SupportedResourceResponse { resource_list: hs })
-                }
-                ExplorerToPlanet::SupportedCombinationRequest { explorer_id } => {
-                    let mut hs = HashSet::new();
-                    hs.insert(ComplexResourceType::AIPartner);
-                    hs.insert(ComplexResourceType::Diamond);
-                    hs.insert(ComplexResourceType::Dolphin);
-                    hs.insert(ComplexResourceType::Life);
-                    hs.insert(ComplexResourceType::Robot);
-                    hs.insert(ComplexResourceType::Water);
-
-                    // Secret channel:
-                    // If an asteroid is incoming, remove one element to signal danger.
-                    // We remove AIPartner to encode bit = 1 ("asteroid arriving").
-                    if self.pending_warning {
-                        hs.remove(&ComplexResourceType::AIPartner);
-                    }
-                    Some(PlanetToExplorer::SupportedCombinationResponse {
-                        combination_list: hs,
-                    })
-                }
-                ExplorerToPlanet::GenerateResourceRequest {
-                    explorer_id,
-                    resource,
-                } => {
-                    if resource != BasicResourceType::Carbon {
-                        Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
-                    } else {
-                        let generated = generator.make_carbon(state.cell_mut(0));
-                        match generated {
-                            Ok(carbon) => Some(PlanetToExplorer::GenerateResourceResponse {
-                                resource: Some(BasicResource::Carbon(carbon)),
-                            }),
-                            Err(_) => {
-                                Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
-                            }
+            ExplorerToPlanet::GenerateResourceRequest {
+                explorer_id,
+                resource,
+            } => {
+                if resource != BasicResourceType::Carbon {
+                    Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
+                } else {
+                    let generated = generator.make_carbon(state.cell_mut(0));
+                    match generated {
+                        Ok(carbon) => Some(PlanetToExplorer::GenerateResourceResponse {
+                            resource: Some(BasicResource::Carbon(carbon)),
+                        }),
+                        Err(_) => {
+                            Some(PlanetToExplorer::GenerateResourceResponse { resource: None })
                         }
                     }
                 }
-                ExplorerToPlanet::CombineResourceRequest { explorer_id, msg } => {
-                    todo!()
-                }
-                ExplorerToPlanet::AvailableEnergyCellRequest { .. } => match state.full_cell() {
-                    Some(_) => Some(PlanetToExplorer::AvailableEnergyCellResponse {
-                        available_cells: 1u32,
-                    }),
-                    None => Some(PlanetToExplorer::AvailableEnergyCellResponse {
-                        available_cells: 0u32,
-                    }),
-                },
             }
+            ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: _explorer_id } => match state.full_cell() {
+                Some(_) => Some(PlanetToExplorer::AvailableEnergyCellResponse {
+                    available_cells: 1u32,
+                }),
+                None => Some(PlanetToExplorer::AvailableEnergyCellResponse {
+                    available_cells: 0u32,
+                }),
+            },
             ExplorerToPlanet::CombineResourceRequest {
                 explorer_id: _,
                 msg,
@@ -322,15 +315,6 @@ impl planet::PlanetAI for PlanetAI {
                     }),
                 },
             },
-            ExplorerToPlanet::AvailableEnergyCellRequest { .. } => {
-                Some(PlanetToExplorer::AvailableEnergyCellResponse {
-                    available_cells: state.cells_count() as u32,
-                })
-            }
-            // ExplorerToPlanet::InternalStateRequest { .. } => {
-            //     //Verrà tolto,l'esploratore non deve poter accedere allo stato interno del pianeta
-            //     todo!()
-            // }
         }
     }
 

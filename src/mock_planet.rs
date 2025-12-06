@@ -3,16 +3,16 @@ use common_game::{
     protocols::messages::{self, OrchestratorToPlanet, PlanetToExplorer},
 };
 
-struct PlanetAI {}
+pub struct MockAI {}
 
 #[allow(dead_code)]
-impl PlanetAI {
-    fn new() -> Self {
+impl MockAI {
+    pub fn new() -> Self {
         Self {}
     }
 }
 
-impl planet::PlanetAI for PlanetAI {
+impl planet::PlanetAI for MockAI {
     fn handle_orchestrator_msg(
         &mut self,
         state: &mut planet::PlanetState,
@@ -124,10 +124,10 @@ impl planet::PlanetAI for PlanetAI {
     }
 
     fn start(&mut self, _state: &planet::PlanetState) {
-        todo!()
+        ()
     }
 
     fn stop(&mut self, _state: &planet::PlanetState) {
-        todo!()
+        ()
     }
 }

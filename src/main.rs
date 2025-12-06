@@ -1,4 +1,5 @@
 mod air_frier;
+mod mock_planet;
 
 use common_game::components::planet::{Planet, PlanetType};
 use common_game::components::resource::{BasicResourceType, ComplexResourceType};
@@ -13,22 +14,24 @@ fn main() {
     let mut gene: Vec<BasicResourceType> = Vec::new();
     gene.push(BasicResourceType::Carbon);
 
-    let mut compl: Vec<ComplexResourceType> = Vec::new();
-    compl.push(ComplexResourceType::Water);
-    compl.push(ComplexResourceType::Life);
-    compl.push(ComplexResourceType::Dolphin);
-    compl.push(ComplexResourceType::Robot);
-    compl.push(ComplexResourceType::AIPartner);
+    let compl: Vec<ComplexResourceType> = vec![
+        ComplexResourceType::Water,
+        ComplexResourceType::Life,
+        ComplexResourceType::Dolphin,
+        ComplexResourceType::Robot,
+        ComplexResourceType::AIPartner,
+        ComplexResourceType::Diamond,
+    ];
 
     let (sdr_expl_to_planet, rcv_expl_to_planet) = mpsc::channel::<ExplorerToPlanet>();
     let (sdr_planet_to_expl, rcv_planet_to_expl) = mpsc::channel::<PlanetToExplorer>();
     let (sdr_planet_to_orc, rcv_planet_to_orc) = mpsc::channel::<PlanetToOrchestrator>();
     let (sdr_orc_to_planet, rcv_orc_to_planet) = mpsc::channel::<OrchestratorToPlanet>();
 
-    let planet = Planet::new(0, PlanetType::C, Box::new(ia), gene, rcv_expl_to_planet);
-    if planet.is_ok() {
-        planet.unwrap().run();
-    }
+    // FIXME: `::new` arguments
+    // let planet = Planet::new(0, PlanetType::C, Box::new(ia), gene, rcv_expl_to_planet);    if planet.is_ok() {
+    //    planet.unwrap().run();
+    //}
     //Planet::new(0, PlanetType::C, (), vec![], vec![], ((), ()), ((), ()));
 }
 #[cfg(test)]
@@ -36,7 +39,7 @@ mod tests {
     use super::*;
     use common_game::components::asteroid::Asteroid;
     use common_game::components::forge::Forge;
-    use common_game::components::resource::Generator;
+    use common_game::components::resource::{BasicResource, Carbon, Generator};
     use common_game::components::sunray::Sunray;
     use common_game::protocols::messages::OrchestratorToPlanet::Asteroid as OtherAsteroid;
     use log::log;
@@ -53,18 +56,20 @@ mod tests {
         pub rcv_planet_to_exp: mpsc::Receiver<PlanetToExplorer>,
         pub rcv_planet_to_orc: mpsc::Receiver<PlanetToOrchestrator>,
     }
+
     fn spawn_planet() -> TestContext {
         let ia = air_frier::PlanetAI::new();
 
-        let mut gene: Vec<BasicResourceType> = Vec::new();
-        gene.push(BasicResourceType::Carbon);
+        let gene: Vec<BasicResourceType> = vec![BasicResourceType::Carbon];
 
-        let mut compl: Vec<ComplexResourceType> = Vec::new();
-        compl.push(ComplexResourceType::Water);
-        compl.push(ComplexResourceType::Life);
-        compl.push(ComplexResourceType::Dolphin);
-        compl.push(ComplexResourceType::Robot);
-        compl.push(ComplexResourceType::AIPartner);
+        let compl: Vec<ComplexResourceType> = vec![
+            ComplexResourceType::Water,
+            ComplexResourceType::Life,
+            ComplexResourceType::Dolphin,
+            ComplexResourceType::Robot,
+            ComplexResourceType::AIPartner,
+            ComplexResourceType::Diamond,
+        ];
 
         let (sdr_expl_to_planet, rcv_expl_to_planet) = mpsc::channel::<ExplorerToPlanet>();
         let (sdr_planet_to_expl, rcv_planet_to_expl) = mpsc::channel::<PlanetToExplorer>();
@@ -81,7 +86,7 @@ mod tests {
             rcv_expl_to_planet,
         );
         sdr_orc_to_planet.send(OrchestratorToPlanet::StartPlanetAI);
-        let t1 = thread::spawn(move || {
+        let _t1 = thread::spawn(move || {
             planet.unwrap().run();
         });
         sleep(Duration::from_millis(10));
@@ -92,6 +97,72 @@ mod tests {
             rcv_planet_to_orc: rcv_planet_to_orc,
             rcv_planet_to_exp: rcv_planet_to_expl,
         }
+    }
+
+    /// This method spawns the MockPlanet which provides all the possible
+    /// kind of basic resources. This is required because [air_frier] planet
+    /// can only generate 'Carbon' and in order to test the `CombineResourceRequest`
+    /// we need to have also the others `BasicResouce`s
+    fn spawn_resource_planet() -> TestContext {
+        let ia = mock_planet::MockAI::new();
+
+        // This planet generates everything except Carbon
+        let gen_rules: Vec<BasicResourceType> = vec![
+            BasicResourceType::Oxygen,
+            BasicResourceType::Hydrogen,
+            BasicResourceType::Silicon,
+            BasicResourceType::Carbon,
+        ];
+
+        let comb_rules: Vec<ComplexResourceType> = vec![];
+
+        let (sdr_expl_to_planet, rcv_expl_to_planet) = mpsc::channel::<ExplorerToPlanet>();
+        let (sdr_planet_to_expl, rcv_planet_to_expl) = mpsc::channel::<PlanetToExplorer>();
+        let (sdr_planet_to_orc, rcv_planet_to_orc) = mpsc::channel::<PlanetToOrchestrator>();
+        let (sdr_orc_to_planet, rcv_orc_to_planet) = mpsc::channel::<OrchestratorToPlanet>();
+
+        let new_planet = Planet::new(
+            1,
+            PlanetType::B,
+            Box::new(ia),
+            gen_rules,
+            comb_rules,
+            (rcv_orc_to_planet, sdr_planet_to_orc),
+            rcv_expl_to_planet,
+        );
+
+        // FIXME: possible to comment this part because MockAI doesn't need
+        // to run `start` (it doesn't have any field to set when starting)
+        let _ = sdr_orc_to_planet.send(OrchestratorToPlanet::StartPlanetAI);
+
+        match new_planet {
+            Ok(mut planet) => {
+                let _t1 = thread::spawn(move || {
+                    let _ = planet.run();
+                });
+            }
+            Err(err) => panic!("Error while creating the planet: \n {}", err),
+        }
+
+        sleep(Duration::from_millis(10));
+
+        TestContext {
+            snd_orc_to_planet: sdr_orc_to_planet,
+            snd_exp_to_planet: sdr_expl_to_planet,
+            snd_planet_to_exp: sdr_planet_to_expl,
+            rcv_planet_to_orc: rcv_planet_to_orc,
+            rcv_planet_to_exp: rcv_planet_to_expl,
+        }
+    }
+
+    /// Used to have 2 planets:
+    /// 1. [air_frier] => our planet
+    /// 2. [mock_planet] => mock planet used to generate all the other
+    /// basics resources not implemented in our planet
+    fn spawn_dual_planets() -> (TestContext, TestContext) {
+        let main_planet = spawn_planet();
+        let resource_planet = spawn_resource_planet();
+        (main_planet, resource_planet)
     }
 
     #[test]
@@ -218,6 +289,168 @@ mod tests {
             }
         }
     }
+
+    /// Example test showing how to use dual planets:
+    /// 1. Main planet generates Carbon
+    /// 2. Resource planet generates Oxygen, Hydrogen, Silicon
+    /// 3. Explorer can fetch resources from both and test combinations
+    #[test]
+    fn example_dual_planet_test_for_combine_resource() {
+        let (main_planet, resource_planet) = spawn_dual_planets();
+        let generator = Forge::new();
+
+        // TODO to improve: create methods for common part (charging sunray, asking
+        // for basic / complex resources)
+
+        // Register explorer with both planets
+        let _ = main_planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::IncomingExplorerRequest {
+                explorer_id: 0,
+                new_mpsc_sender: main_planet.snd_planet_to_exp.clone(),
+            });
+
+        let _ =
+            resource_planet
+                .snd_orc_to_planet
+                .send(OrchestratorToPlanet::IncomingExplorerRequest {
+                    explorer_id: 0,
+                    new_mpsc_sender: resource_planet.snd_planet_to_exp.clone(),
+                });
+
+        // Charge both planets with sunrays
+        // NOTE: [air_frier] requires two energy cells:
+        // - First sunray builds the rocket
+        // - Second sunray charges the cell
+        let _ = main_planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::Sunray(
+                generator.as_ref().unwrap().generate_sunray(),
+            ));
+        let _ = resource_planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::Sunray(
+                generator.as_ref().unwrap().generate_sunray(),
+            ));
+
+        // Second sunray charges the energy cell
+        let _ = main_planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::Sunray(
+                generator.as_ref().unwrap().generate_sunray(),
+            ));
+        let _ = resource_planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::Sunray(
+                generator.as_ref().unwrap().generate_sunray(),
+            ));
+
+        sleep(Duration::from_millis(50));
+
+        // Get Carbon from main planet
+        let _ = main_planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::GenerateResourceRequest {
+                explorer_id: 0,
+                resource: BasicResourceType::Carbon,
+            });
+        let carbon_response = main_planet.rcv_planet_to_exp.recv().unwrap();
+        println!("Carbon response received");
+        let carbon_1 = match carbon_response {
+            PlanetToExplorer::GenerateResourceResponse { resource } => match resource {
+                Some(carbon) => Some(carbon),
+                None => None,
+            },
+            _ => None,
+        };
+
+        // Getting the second Carbon to combine with the first and get
+        // Diamond
+        let _ = main_planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::Sunray(
+                generator.as_ref().unwrap().generate_sunray(),
+            ));
+
+        let _ = main_planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::GenerateResourceRequest {
+                explorer_id: 0,
+                resource: BasicResourceType::Carbon,
+            });
+        let carbon_response = main_planet.rcv_planet_to_exp.recv().unwrap();
+
+        println!("Carbon response received");
+
+        let carbon_2 = match carbon_response {
+            PlanetToExplorer::GenerateResourceResponse { resource } => match resource {
+                Some(carbon) => Some(carbon),
+                None => None,
+            },
+            _ => None,
+        };
+
+        // Generating another sunray that will be used to generate 
+        // the complex resource
+        let _ = main_planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::Sunray(
+                generator.as_ref().unwrap().generate_sunray(),
+            ));
+
+        // TODO: delete this part for THIS test, because:
+        // Diamond = Carbon + Carbon
+        // Get Oxygen from resource planet
+        let _ = resource_planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::GenerateResourceRequest {
+                explorer_id: 0,
+                resource: BasicResourceType::Oxygen,
+            });
+        let oxygen_response = resource_planet.rcv_planet_to_exp.recv().unwrap();
+        let oxygen = match oxygen_response {
+            PlanetToExplorer::GenerateResourceResponse { resource } => match resource {
+                Some(oxygen) => Some(oxygen),
+                None => None,
+            },
+            _ => None,
+        };
+
+        // Get Water (ComplexResourceRequest) from main planet
+        // Extract Carbon from the BasicResource enum
+        if let (
+            Some(common_game::components::resource::BasicResource::Carbon(c1)),
+            Some(common_game::components::resource::BasicResource::Carbon(c2)),
+        ) = (carbon_1, carbon_2)
+        {
+            let _ = main_planet
+                .snd_exp_to_planet
+                .send(ExplorerToPlanet::CombineResourceRequest {
+                    explorer_id: 0,
+                    msg: common_game::components::resource::ComplexResourceRequest::Diamond(c1, c2),
+                });
+            let diamond_response = main_planet.rcv_planet_to_exp.recv().unwrap();
+            println!("Diamond combination response received");
+            match diamond_response {
+                PlanetToExplorer::CombineResourceResponse { complex_response } => {
+                    match complex_response {
+                        Ok(_diamond) => {
+                            println!("Diamond created successfully!");
+                            assert!(true, "Diamond should have been created");
+                        }
+                        Err(e) => {
+                            println!("Failed to create Diamond: {:?}", e);
+                            assert!(false, "Diamond creation should not have failed");
+                        }
+                    }
+                }
+                _ => println!("Unexpected response type for CombineResourceRequest"),
+            }
+        } else {
+            panic!("Carbon resources were not the expected type");
+        }
+    }
+
     #[test]
     fn ask_for_carbon_with_energy() {
         let planet = spawn_planet();
