@@ -41,9 +41,10 @@ fn main() {
 }
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use common_game::components::resource::Generator;
+use super::*;
     use common_game::components::asteroid::Asteroid;
-    use common_game::components::generator::Generator;
+    use common_game::components::forge::Forge;
     use common_game::components::sunray::Sunray;
     use common_game::protocols::messages::OrchestratorToPlanet::Asteroid as OtherAsteroid;
     use log::log;
@@ -105,7 +106,7 @@ mod tests {
     ///Sends an asteroid to the planet and checks that the planet responde with a none
     fn test_asteroid_with_no_rocket() {
         let mut planet = spawn_planet();
-        let generator = common_game::components::generator::Generator::new();
+        let generator = common_game::components::forge::Forge::new();
         planet
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::Asteroid(
@@ -116,9 +117,9 @@ mod tests {
             Ok(msg) => match msg {
                 PlanetToOrchestrator::AsteroidAck {
                     planet_id: _,
-                    rocket: r,
+                    destroyed: dest,
                 } => {
-                    assert!(r.is_none());
+                    assert_eq!(dest,true);
                 }
                 _ => {}
             },
@@ -129,7 +130,7 @@ mod tests {
     ///Sends a sunray to the planet, that makes a rocket with it, later it sends an asteroid and we check if che planet respond with a rocket
     fn test_asteroid_with_rocket() {
         let planet = spawn_planet();
-        let generator = common_game::components::generator::Generator::new();
+        let generator = common_game::components::forge::Forge::new();
         let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
             generator.as_ref().unwrap().generate_sunray(),
         ));
@@ -144,9 +145,9 @@ mod tests {
             Ok(msg) => match msg {
                 PlanetToOrchestrator::AsteroidAck {
                     planet_id: _,
-                    rocket: r,
+                    destroyed: destr,
                 } => {
-                    assert!(r.is_some());
+                    assert_eq!(destr,false);
                 }
                 _ => {}
             },
@@ -228,7 +229,7 @@ mod tests {
     #[test]
     fn ask_for_carbon_with_energy() {
         let planet = spawn_planet();
-        let generator = common_game::components::generator::Generator::new();
+        let generator = common_game::components::forge::Forge::new();
         let _ = planet
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::IncomingExplorerRequest {
@@ -288,7 +289,7 @@ mod tests {
     #[test]
     fn ask_for_planet_available_energy_cell() {
         let planet = spawn_planet();
-        let generator = Generator::new();
+        let generator = Forge::new();
 
         // Test with no sunray received
         let _ = planet
@@ -352,7 +353,7 @@ mod tests {
     #[test]
     fn explorer_detects_asteroid_from_supported_combinations() {
         let planet = spawn_planet();
-        let generator = Generator::new();
+        let generator = Forge::new();
 
         // Send Asteroid
         let _ = planet
@@ -364,11 +365,11 @@ mod tests {
         // Receive ACK
         let ack = planet.rcv_planet_to_orc.recv().unwrap();
         match ack {
-            PlanetToOrchestrator::AsteroidAck { rocket, .. } => {
-                if rocket.is_some() {
-                    println!("Received asteroid ACK, with rocket");
+            PlanetToOrchestrator::AsteroidAck { destroyed, .. } => {
+                if !destroyed {
+                    println!("Received asteroid ACK, with destroyed false");
                 } else {
-                    println!("Received asteroid ACK, without rocket");
+                    println!("Received asteroid ACK, with destroyed true");
                 }
             }
             _ => panic!("Expected AsteroidAck"),
