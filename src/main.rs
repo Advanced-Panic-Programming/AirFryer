@@ -46,6 +46,7 @@ mod tests {
     use crate::air_frier::PlanetAI;
     use common_game::components::asteroid::Asteroid;
     use common_game::components::forge::Forge;
+    use common_game::components::planet::DummyPlanetState;
     use common_game::components::resource::Generator;
     use common_game::components::sunray::Sunray;
     use common_game::protocols::messages::OrchestratorToPlanet::Asteroid as OtherAsteroid;
@@ -55,7 +56,6 @@ mod tests {
     use std::thread;
     use std::thread::sleep;
     use std::time::Duration;
-    use common_game::components::planet::DummyPlanetState;
 
     pub struct TestContext {
         pub snd_orc_to_planet: mpsc::Sender<OrchestratorToPlanet>,
@@ -419,14 +419,22 @@ mod tests {
     }
 
     #[test]
-    fn planet_internal_state_request () {
+    fn planet_internal_state_request() {
         let planet = spawn_planet();
-        planet.snd_orc_to_planet.send(OrchestratorToPlanet::InternalStateRequest);
+        planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::InternalStateRequest);
         let res = planet.rcv_planet_to_orc.recv();
         match res {
-            Ok(PlanetToOrchestrator::InternalStateResponse { planet_id, planet_state}) => {
+            Ok(PlanetToOrchestrator::InternalStateResponse {
+                planet_id,
+                planet_state,
+            }) => {
                 assert_eq!(planet_id, 0);
-                assert_eq!(planet_state.has_rocket, false, "the planet doesn't have a rocket");
+                assert_eq!(
+                    planet_state.has_rocket, false,
+                    "the planet doesn't have a rocket"
+                );
                 //assert_eq!(planet_state.energy_cells.iter().map(|cell| cell.is_charged()).collect(), 1, "Correct!");
                 //assert_eq!(planet_state.energy_cells.iter().filter(|cell| cell.is_cherged()).collect(), 0, "The planet has no energy cell charged");
             }
