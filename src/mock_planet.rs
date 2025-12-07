@@ -3,11 +3,11 @@ use common_game::{
     protocols::messages::{self, OrchestratorToPlanet, PlanetToExplorer},
 };
 
-pub struct MockAI {}
+pub(crate) struct MockAI {}
 
 #[allow(dead_code)]
 impl MockAI {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {}
     }
 }

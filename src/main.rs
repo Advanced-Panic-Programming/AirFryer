@@ -38,6 +38,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use common_game::components;
     use common_game::components::forge::Forge;
     use common_game::components::resource::{BasicResource, Carbon};
     use crossbeam_channel::RecvError;
@@ -46,9 +47,11 @@ mod tests {
     use std::thread::sleep;
     use std::time::Duration;
 
-    // ==========================================================
-    // STRUCT & FUNCTIONS (to create planets) FOR TEST OPERATIONS
-    // ==========================================================
+    // ==================================================================
+    // CONST, STRUCT & FUNCTIONS (to create planets) FOR TEST OPERATIONS
+    // ==================================================================
+
+    // let generator: 'static = Forge::new();
 
     pub struct TestContext {
         pub snd_orc_to_planet: Sender<OrchestratorToPlanet>,
@@ -183,7 +186,7 @@ mod tests {
 
     /// Charges a planet with N sunrays
     /// NOTE: the [air_frier::PlanetAI] of [air_frier] build always the rocket first (if it isn't
-    /// already there) and then charge energy cells
+    /// already created) and then charge energy cells
     fn charge_planet_with_sunrays(
         planet: &TestContext,
         generator: &Result<Forge, String>,
@@ -294,6 +297,61 @@ mod tests {
     ) -> Option<common_game::components::resource::Water> {
         match resource {
             common_game::components::resource::ComplexResource::Water(w) => Some(w),
+            _ => None,
+        }
+    }
+
+    /// Helper to extract Life from ComplexResource enum
+    #[allow(dead_code)]
+    fn extract_life(
+        resource: common_game::components::resource::ComplexResource,
+    ) -> Option<common_game::components::resource::Life> {
+        match resource {
+            common_game::components::resource::ComplexResource::Life(l) => Some(l),
+            _ => None,
+        }
+    }
+
+    /// Helper to extract Dolphin from ComplexResource enum
+    #[allow(dead_code)]
+    fn extract_dolphin(
+        resource: common_game::components::resource::ComplexResource,
+    ) -> Option<common_game::components::resource::Dolphin> {
+        match resource {
+            common_game::components::resource::ComplexResource::Dolphin(d) => Some(d),
+            _ => None,
+        }
+    }
+
+    /// Helper to extract Robot from ComplexResource enum
+    #[allow(dead_code)]
+    fn extract_robot(
+        resource: common_game::components::resource::ComplexResource,
+    ) -> Option<common_game::components::resource::Robot> {
+        match resource {
+            common_game::components::resource::ComplexResource::Robot(r) => Some(r),
+            _ => None,
+        }
+    }
+
+    /// Helper to extract Diamond from ComplexResource enum
+    #[allow(dead_code)]
+    fn extract_diamond(
+        resource: common_game::components::resource::ComplexResource,
+    ) -> Option<common_game::components::resource::Diamond> {
+        match resource {
+            common_game::components::resource::ComplexResource::Diamond(d) => Some(d),
+            _ => None,
+        }
+    }
+
+    /// Helper to extract AIPartner from ComplexResource enum
+    #[allow(dead_code)]
+    fn extract_aipartner(
+        resource: common_game::components::resource::ComplexResource,
+    ) -> Option<common_game::components::resource::AIPartner> {
+        match resource {
+            common_game::components::resource::ComplexResource::AIPartner(a) => Some(a),
             _ => None,
         }
     }
@@ -661,7 +719,7 @@ mod tests {
 
     /// Test Water combination: Hydrogen + Oxygen => Water
     #[test]
-    fn test_combine_resource_water() {
+    fn combine_resource_water_success() {
         let (main_planet, resource_planet) = spawn_dual_planets();
         let generator = Forge::new();
         let explorer_id = 0;
@@ -669,8 +727,8 @@ mod tests {
         // Setup
         register_explorer_with_planet(&main_planet, explorer_id);
         register_explorer_with_planet(&resource_planet, explorer_id);
-        charge_planet_with_sunrays(&main_planet, &generator, 2);
-        charge_planet_with_sunrays(&resource_planet, &generator, 2);
+        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
 
         // Get Hydrogen from resource planet
         charge_planet_with_sunrays(&resource_planet, &generator, 1);
@@ -701,14 +759,14 @@ mod tests {
 
     /// Diamond = Carbon + Carbon
     #[test]
-    fn test_combine_resource_diamond() {
+    fn combine_resource_diamond_success() {
         let (main_planet, _resource_planet) = spawn_dual_planets();
         let generator = Forge::new();
         let explorer_id = 0;
 
         // Setup
         register_explorer_with_planet(&main_planet, explorer_id);
-        charge_planet_with_sunrays(&main_planet, &generator, 2); // Rocket + 1 energy cell
+        charge_planet_with_sunrays(&main_planet, &generator, 1); // Rocket
 
         // Get first Carbon
         charge_planet_with_sunrays(&main_planet, &generator, 1);
@@ -736,9 +794,52 @@ mod tests {
         }
     }
 
+    /// Diamond = Carbon + Carbon
+    /// Fail: The only possible error we can get when creating a combined resource
+    /// is the planet not having the required energy cell.
+    /// NOTE: we only implemented this failure test because `make_complex_resource`
+    /// is macro-generated, so the behavior is identical for all resource
+    /// combination functions
+    #[test]
+    fn combine_resource_diamond_fail() {
+        let (main_planet, _resource_planet) = spawn_dual_planets();
+        let generator = Forge::new();
+        let explorer_id = 0;
+
+        // Setup
+        register_explorer_with_planet(&main_planet, explorer_id);
+        charge_planet_with_sunrays(&main_planet, &generator, 1); // Rocket
+
+        // Get first Carbon
+        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        let carbon_1 = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
+
+        // Get second Carbon
+        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        let carbon_2 = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
+
+        // Extract Carbon values and combine
+        if let (Some(c1), Some(c2)) = (extract_carbon(carbon_1), extract_carbon(carbon_2)) {
+            // charge_planet_with_sunrays(&main_planet, &generator, 1); // <--- no energy cell to
+            // use to combine the elements
+            let result = combine_resources(
+                &main_planet,
+                explorer_id,
+                common_game::components::resource::ComplexResourceRequest::Diamond(c1, c2),
+            );
+
+            match result {
+                Ok(_diamond) => panic!("Diamond created successfully... impossible!"),
+                Err((str, _, _)) => assert_eq!("EnergyCell not charged!", str),
+            }
+        } else {
+            panic!("Failed to extract Carbon resources");
+        }
+    }
+
     /// Test Life combination: Water + Carbon => Life
     #[test]
-    fn test_combine_resource_life() {
+    fn combine_resource_life() {
         let (main_planet, resource_planet) = spawn_dual_planets();
         let generator = Forge::new();
         let explorer_id = 0;
@@ -746,8 +847,8 @@ mod tests {
         // Setup
         register_explorer_with_planet(&main_planet, explorer_id);
         register_explorer_with_planet(&resource_planet, explorer_id);
-        charge_planet_with_sunrays(&main_planet, &generator, 2);
-        charge_planet_with_sunrays(&resource_planet, &generator, 2);
+        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
 
         // Get Water from main planet
         // Get Hydrogen from resource planet
@@ -801,7 +902,7 @@ mod tests {
 
     /// Test Dolphin combination: Water + Life => Dolphin
     #[test]
-    fn test_combine_resource_dolphin() {
+    fn combine_resource_dolphin() {
         let (main_planet, resource_planet) = spawn_dual_planets();
         let generator = Forge::new();
         let explorer_id = 0;
@@ -809,16 +910,107 @@ mod tests {
         // Setup
         register_explorer_with_planet(&main_planet, explorer_id);
         register_explorer_with_planet(&resource_planet, explorer_id);
-        charge_planet_with_sunrays(&main_planet, &generator, 2);
-        charge_planet_with_sunrays(&resource_planet, &generator, 2);
+        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
 
-        // TODO: Get Water and Life (requires previous combinations)
-        // TODO: Combine Water + Life => Dolphin
+        // Get Water from main planet
+        // Get Hydrogen from resource planet
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        let hydrogen =
+            get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Hydrogen);
+
+        // Get Oxygen from resource planet
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        let oxygen = get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Oxygen);
+
+        // Create Water
+        let water = if let (Some(h), Some(o)) = (extract_hydrogen(hydrogen), extract_oxygen(oxygen))
+        {
+            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            let result = combine_resources(
+                &main_planet,
+                explorer_id,
+                common_game::components::resource::ComplexResourceRequest::Water(h, o),
+            );
+
+            match result {
+                Ok(water) => water,
+                Err(e) => panic!("Water creation failed: {:?}", e),
+            }
+        } else {
+            panic!("Failed to extract Hydrogen and Oxygen resources");
+        };
+
+        // Get Life from main planet
+        // Get Hydrogen and Oxygen again from resource planet
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        let hydrogen_2 =
+            get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Hydrogen);
+
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        let oxygen_2 = get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Oxygen);
+
+        // Create Water for Life combination
+        let water_for_life =
+            if let (Some(h), Some(o)) = (extract_hydrogen(hydrogen_2), extract_oxygen(oxygen_2)) {
+                charge_planet_with_sunrays(&main_planet, &generator, 1);
+                let result = combine_resources(
+                    &main_planet,
+                    explorer_id,
+                    common_game::components::resource::ComplexResourceRequest::Water(h, o),
+                );
+
+                match result {
+                    Ok(water) => water,
+                    Err(e) => panic!("Water creation failed: {:?}", e),
+                }
+            } else {
+                panic!("Failed to extract Hydrogen and Oxygen resources");
+            };
+
+        // Get Carbon from main planet
+        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        let carbon = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
+
+        // Create Life
+        let life =
+            if let (Some(c), Some(w)) = (extract_carbon(carbon), extract_water(water_for_life)) {
+                charge_planet_with_sunrays(&main_planet, &generator, 1);
+                let result = combine_resources(
+                    &main_planet,
+                    explorer_id,
+                    common_game::components::resource::ComplexResourceRequest::Life(w, c),
+                );
+
+                match result {
+                    Ok(life) => life,
+                    Err(e) => panic!("Life creation failed: {:?}", e),
+                }
+            } else {
+                panic!("Failed to extract Water or Carbon resources");
+            };
+
+        // Combine Water + Life => Dolphin
+        if let (Some(w), Some(l)) = (extract_water(water), extract_life(life)) {
+            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            let result = combine_resources(
+                &main_planet,
+                explorer_id,
+                common_game::components::resource::ComplexResourceRequest::Dolphin(w, l),
+            );
+
+            match result {
+                Ok(_dolphin) => println!("Dolphin created successfully!"),
+                Err(e) => panic!("Dolphin creation failed: {:?}", e),
+            }
+        } else {
+            panic!("Failed to extract Water or Life resources");
+        }
     }
 
     /// Test Robot combination: Silicon + Life => Robot
     #[test]
-    fn test_combine_resource_robot() {
+    fn combine_resource_robot() {
         let (main_planet, resource_planet) = spawn_dual_planets();
         let generator = Forge::new();
         let explorer_id = 0;
@@ -826,17 +1018,82 @@ mod tests {
         // Setup
         register_explorer_with_planet(&main_planet, explorer_id);
         register_explorer_with_planet(&resource_planet, explorer_id);
-        charge_planet_with_sunrays(&main_planet, &generator, 2);
-        charge_planet_with_sunrays(&resource_planet, &generator, 2);
+        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
 
-        // TODO: Get Silicon from resource planet
-        // TODO: Get Life from main planet (requires Water + Carbon combination)
-        // TODO: Combine Silicon + Life => Robot
+        // Get Silicon from resource planet
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        let silicon = get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Silicon);
+
+        // Get Life from main planet
+        // Get Hydrogen and Oxygen from resource planet
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        let hydrogen =
+            get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Hydrogen);
+
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        let oxygen = get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Oxygen);
+
+        // Create Water
+        let water = if let (Some(h), Some(o)) = (extract_hydrogen(hydrogen), extract_oxygen(oxygen))
+        {
+            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            let result = combine_resources(
+                &main_planet,
+                explorer_id,
+                common_game::components::resource::ComplexResourceRequest::Water(h, o),
+            );
+
+            match result {
+                Ok(water) => water,
+                Err(e) => panic!("Water creation failed: {:?}", e),
+            }
+        } else {
+            panic!("Failed to extract Hydrogen and Oxygen resources");
+        };
+
+        // Get Carbon from main planet
+        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        let carbon = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
+
+        // Create Life
+        let life = if let (Some(c), Some(w)) = (extract_carbon(carbon), extract_water(water)) {
+            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            let result = combine_resources(
+                &main_planet,
+                explorer_id,
+                common_game::components::resource::ComplexResourceRequest::Life(w, c),
+            );
+
+            match result {
+                Ok(life) => life,
+                Err(e) => panic!("Life creation failed: {:?}", e),
+            }
+        } else {
+            panic!("Failed to extract Water or Carbon resources");
+        };
+
+        // Combine Silicon + Life => Robot
+        if let (Some(s), Some(l)) = (extract_silicon(silicon), extract_life(life)) {
+            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            let result = combine_resources(
+                &main_planet,
+                explorer_id,
+                common_game::components::resource::ComplexResourceRequest::Robot(s, l),
+            );
+
+            match result {
+                Ok(_robot) => println!("Robot created successfully!"),
+                Err(e) => panic!("Robot creation failed: {:?}", e),
+            }
+        } else {
+            panic!("Failed to extract Silicon or Life resources");
+        }
     }
 
     /// Test AIPartner combination: Robot + Diamond => AIPartner
     #[test]
-    fn test_combine_resource_aipartner() {
+    fn combine_resource_aipartner() {
         let (main_planet, resource_planet) = spawn_dual_planets();
         let generator = Forge::new();
         let explorer_id = 0;
@@ -844,12 +1101,121 @@ mod tests {
         // Setup
         register_explorer_with_planet(&main_planet, explorer_id);
         register_explorer_with_planet(&resource_planet, explorer_id);
-        charge_planet_with_sunrays(&main_planet, &generator, 2);
-        charge_planet_with_sunrays(&resource_planet, &generator, 2);
+        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
 
-        // TODO: Get Robot from main planet (requires Silicon + Life combination)
-        // TODO: Get Diamond from main planet (requires Carbon + Carbon combination)
-        // TODO: Combine Robot + Diamond => AIPartner
+        // Get Robot from main planet
+        // Get Silicon from resource planet
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        let silicon = get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Silicon);
+
+        // Get Hydrogen and Oxygen from resource planet
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        let hydrogen =
+            get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Hydrogen);
+
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        let oxygen = get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Oxygen);
+
+        // Create Water
+        let water = if let (Some(h), Some(o)) = (extract_hydrogen(hydrogen), extract_oxygen(oxygen))
+        {
+            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            let result = combine_resources(
+                &main_planet,
+                explorer_id,
+                common_game::components::resource::ComplexResourceRequest::Water(h, o),
+            );
+
+            match result {
+                Ok(water) => water,
+                Err(e) => panic!("Water creation failed: {:?}", e),
+            }
+        } else {
+            panic!("Failed to extract Hydrogen and Oxygen resources");
+        };
+
+        // Get Carbon from main planet
+        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        let carbon = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
+
+        // Create Life
+        let life = if let (Some(c), Some(w)) = (extract_carbon(carbon), extract_water(water)) {
+            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            let result = combine_resources(
+                &main_planet,
+                explorer_id,
+                common_game::components::resource::ComplexResourceRequest::Life(w, c),
+            );
+
+            match result {
+                Ok(life) => life,
+                Err(e) => panic!("Life creation failed: {:?}", e),
+            }
+        } else {
+            panic!("Failed to extract Water or Carbon resources");
+        };
+
+        // Create Robot
+        let robot = if let (Some(s), Some(l)) = (extract_silicon(silicon), extract_life(life)) {
+            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            let result = combine_resources(
+                &main_planet,
+                explorer_id,
+                common_game::components::resource::ComplexResourceRequest::Robot(s, l),
+            );
+
+            match result {
+                Ok(robot) => robot,
+                Err(e) => panic!("Robot creation failed: {:?}", e),
+            }
+        } else {
+            panic!("Failed to extract Silicon or Life resources");
+        };
+
+        // Get Diamond from main planet
+        // Get first Carbon
+        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        let carbon_1 = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
+
+        // Get second Carbon
+        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        let carbon_2 = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
+
+        // Create Diamond
+        let diamond =
+            if let (Some(c1), Some(c2)) = (extract_carbon(carbon_1), extract_carbon(carbon_2)) {
+                charge_planet_with_sunrays(&main_planet, &generator, 1);
+                let result = combine_resources(
+                    &main_planet,
+                    explorer_id,
+                    common_game::components::resource::ComplexResourceRequest::Diamond(c1, c2),
+                );
+
+                match result {
+                    Ok(diamond) => diamond,
+                    Err(e) => panic!("Diamond creation failed: {:?}", e),
+                }
+            } else {
+                panic!("Failed to extract Carbon resources");
+            };
+
+        // Combine Robot + Diamond => AIPartner
+        if let (Some(r), Some(d)) = (extract_robot(robot), extract_diamond(diamond)) {
+            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            let result = combine_resources(
+                &main_planet,
+                explorer_id,
+                common_game::components::resource::ComplexResourceRequest::AIPartner(r, d),
+            );
+
+            match result {
+                Ok(_aipartner) => println!("AIPartner created successfully!"),
+                Err(e) => panic!("AIPartner creation failed: {:?}", e),
+            }
+        } else {
+            panic!("Failed to extract Robot or Diamond resources");
+        }
     }
 
     #[test]
