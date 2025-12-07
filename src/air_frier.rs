@@ -90,7 +90,10 @@ impl planet::PlanetAI for PlanetAI {
                     })
                 }
                 OrchestratorToPlanet::InternalStateRequest => {
-                    todo!() //Michele
+                    Some(PlanetToOrchestrator::InternalStateResponse {
+                        planet_id: state.id(),
+                        planet_state: state.to_dummy(),
+                    }) //Michele
                 }
                 OrchestratorToPlanet::IncomingExplorerRequest { .. } => {
                     self.has_explorer = true;
