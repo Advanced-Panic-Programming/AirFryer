@@ -49,6 +49,10 @@ mod tests {
     use std::thread::sleep;
     use std::time::Duration;
 
+    // ==========================================================
+    // STRUCT & FUNCTIONS (to create planets) FOR TEST OPERATIONS
+    // ==========================================================
+
     pub struct TestContext {
         pub snd_orc_to_planet: mpsc::Sender<OrchestratorToPlanet>,
         pub snd_exp_to_planet: mpsc::Sender<ExplorerToPlanet>,
@@ -131,8 +135,6 @@ mod tests {
             rcv_expl_to_planet,
         );
 
-        // FIXME: possible to comment this part because MockAI doesn't need
-        // to run `start` (it doesn't have any field to set when starting)
         let _ = sdr_orc_to_planet.send(OrchestratorToPlanet::StartPlanetAI);
 
         match new_planet {
@@ -165,6 +167,145 @@ mod tests {
         (main_planet, resource_planet)
     }
 
+    // ===========================================
+    // HELPER FUNCTIONS FOR COMMON TEST OPERATIONS
+    // ===========================================
+    //
+    // FIXME: it would be ideal to use the common test operation inside
+    // all the test methods
+
+    /// Registers an explorer with a planet so it can send/receive messages
+    fn register_explorer_with_planet(planet: &TestContext, explorer_id: u32) {
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::IncomingExplorerRequest {
+                explorer_id,
+                new_mpsc_sender: planet.snd_planet_to_exp.clone(),
+            });
+    }
+
+    /// Charges a planet with N sunrays
+    /// NOTE: the [air_frier::PlanetAI] of [air_frier] build always the rocket first (if it isn't
+    /// already there) and then charge energy cells
+    fn charge_planet_with_sunrays(
+        planet: &TestContext,
+        generator: &Result<Forge, String>,
+        count: usize,
+    ) {
+        for _ in 0..count {
+            let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
+                generator.as_ref().unwrap().generate_sunray(),
+            ));
+        }
+        sleep(Duration::from_millis(50));
+    }
+
+    /// Requests a basic resource from a planet and returns the response
+    fn get_basic_resource(
+        planet: &TestContext,
+        explorer_id: u32,
+        resource_type: BasicResourceType,
+    ) -> Option<BasicResource> {
+        let _ = planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::GenerateResourceRequest {
+                explorer_id,
+                resource: resource_type,
+            });
+
+        let response = planet.rcv_planet_to_exp.recv().unwrap();
+        match response {
+            PlanetToExplorer::GenerateResourceResponse { resource } => resource,
+            _ => None,
+        }
+    }
+
+    /// Requests a complex resource from a planet and returns the response
+    /// The error type is a tuple: (error_message, left_resource, right_resource)
+    fn combine_resources(
+        planet: &TestContext,
+        explorer_id: u32,
+        request: common_game::components::resource::ComplexResourceRequest,
+    ) -> Result<
+        common_game::components::resource::ComplexResource,
+        (
+            String,
+            common_game::components::resource::GenericResource,
+            common_game::components::resource::GenericResource,
+        ),
+    > {
+        let _ = planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::CombineResourceRequest {
+                explorer_id,
+                msg: request,
+            });
+
+        let response = planet.rcv_planet_to_exp.recv().unwrap();
+        match response {
+            PlanetToExplorer::CombineResourceResponse { complex_response } => complex_response,
+            _ => panic!("Unexpected response type for CombineResourceRequest"),
+        }
+    }
+
+    /// Helper to extract Carbon from BasicResource enum
+    #[allow(dead_code)]
+    fn extract_carbon(resource: Option<BasicResource>) -> Option<Carbon> {
+        match resource {
+            Some(BasicResource::Carbon(c)) => Some(c),
+            _ => None,
+        }
+    }
+
+    /// Helper to extract Oxygen from BasicResource enum
+    #[allow(dead_code)]
+    fn extract_oxygen(
+        resource: Option<BasicResource>,
+    ) -> Option<common_game::components::resource::Oxygen> {
+        match resource {
+            Some(BasicResource::Oxygen(o)) => Some(o),
+            _ => None,
+        }
+    }
+
+    /// Helper to extract Hydrogen from BasicResource enum
+    #[allow(dead_code)]
+    fn extract_hydrogen(
+        resource: Option<BasicResource>,
+    ) -> Option<common_game::components::resource::Hydrogen> {
+        match resource {
+            Some(BasicResource::Hydrogen(h)) => Some(h),
+            _ => None,
+        }
+    }
+
+    /// Helper to extract Silicon from BasicResource enum
+    #[allow(dead_code)]
+    fn extract_silicon(
+        resource: Option<BasicResource>,
+    ) -> Option<common_game::components::resource::Silicon> {
+        match resource {
+            Some(BasicResource::Silicon(s)) => Some(s),
+            _ => None,
+        }
+    }
+
+    // ===========================================
+    // START OF TESTING
+    // ===========================================
+
+    // TODO: structure the code:
+    // ========
+    // CATEGORY
+    // ========
+    // for each "test category"
+    // EG:
+    // - asteroid
+    // - rocket
+    // - resource request
+    //  - basic resource
+    //  - complex resource
+    //  ...
     #[test]
     ///Sends an asteroid to the planet and checks that the planet responde with a none
     fn test_asteroid_with_no_rocket() {
@@ -287,167 +428,6 @@ mod tests {
             Err(_) => {
                 println!("Result error");
             }
-        }
-    }
-
-    /// Example test showing how to use dual planets:
-    /// 1. Main planet generates Carbon
-    /// 2. Resource planet generates Oxygen, Hydrogen, Silicon
-    /// 3. Explorer can fetch resources from both and test combinations
-    #[test]
-    fn example_dual_planet_test_for_combine_resource() {
-        let (main_planet, resource_planet) = spawn_dual_planets();
-        let generator = Forge::new();
-
-        // TODO to improve: create methods for common part (charging sunray, asking
-        // for basic / complex resources)
-
-        // Register explorer with both planets
-        let _ = main_planet
-            .snd_orc_to_planet
-            .send(OrchestratorToPlanet::IncomingExplorerRequest {
-                explorer_id: 0,
-                new_mpsc_sender: main_planet.snd_planet_to_exp.clone(),
-            });
-
-        let _ =
-            resource_planet
-                .snd_orc_to_planet
-                .send(OrchestratorToPlanet::IncomingExplorerRequest {
-                    explorer_id: 0,
-                    new_mpsc_sender: resource_planet.snd_planet_to_exp.clone(),
-                });
-
-        // Charge both planets with sunrays
-        // NOTE: [air_frier] requires two energy cells:
-        // - First sunray builds the rocket
-        // - Second sunray charges the cell
-        let _ = main_planet
-            .snd_orc_to_planet
-            .send(OrchestratorToPlanet::Sunray(
-                generator.as_ref().unwrap().generate_sunray(),
-            ));
-        let _ = resource_planet
-            .snd_orc_to_planet
-            .send(OrchestratorToPlanet::Sunray(
-                generator.as_ref().unwrap().generate_sunray(),
-            ));
-
-        // Second sunray charges the energy cell
-        let _ = main_planet
-            .snd_orc_to_planet
-            .send(OrchestratorToPlanet::Sunray(
-                generator.as_ref().unwrap().generate_sunray(),
-            ));
-        let _ = resource_planet
-            .snd_orc_to_planet
-            .send(OrchestratorToPlanet::Sunray(
-                generator.as_ref().unwrap().generate_sunray(),
-            ));
-
-        sleep(Duration::from_millis(50));
-
-        // Get Carbon from main planet
-        let _ = main_planet
-            .snd_exp_to_planet
-            .send(ExplorerToPlanet::GenerateResourceRequest {
-                explorer_id: 0,
-                resource: BasicResourceType::Carbon,
-            });
-        let carbon_response = main_planet.rcv_planet_to_exp.recv().unwrap();
-        println!("Carbon response received");
-        let carbon_1 = match carbon_response {
-            PlanetToExplorer::GenerateResourceResponse { resource } => match resource {
-                Some(carbon) => Some(carbon),
-                None => None,
-            },
-            _ => None,
-        };
-
-        // Getting the second Carbon to combine with the first and get
-        // Diamond
-        let _ = main_planet
-            .snd_orc_to_planet
-            .send(OrchestratorToPlanet::Sunray(
-                generator.as_ref().unwrap().generate_sunray(),
-            ));
-
-        let _ = main_planet
-            .snd_exp_to_planet
-            .send(ExplorerToPlanet::GenerateResourceRequest {
-                explorer_id: 0,
-                resource: BasicResourceType::Carbon,
-            });
-        let carbon_response = main_planet.rcv_planet_to_exp.recv().unwrap();
-
-        println!("Carbon response received");
-
-        let carbon_2 = match carbon_response {
-            PlanetToExplorer::GenerateResourceResponse { resource } => match resource {
-                Some(carbon) => Some(carbon),
-                None => None,
-            },
-            _ => None,
-        };
-
-        // Generating another sunray that will be used to generate 
-        // the complex resource
-        let _ = main_planet
-            .snd_orc_to_planet
-            .send(OrchestratorToPlanet::Sunray(
-                generator.as_ref().unwrap().generate_sunray(),
-            ));
-
-        // TODO: delete this part for THIS test, because:
-        // Diamond = Carbon + Carbon
-        // Get Oxygen from resource planet
-        let _ = resource_planet
-            .snd_exp_to_planet
-            .send(ExplorerToPlanet::GenerateResourceRequest {
-                explorer_id: 0,
-                resource: BasicResourceType::Oxygen,
-            });
-        let oxygen_response = resource_planet.rcv_planet_to_exp.recv().unwrap();
-        let oxygen = match oxygen_response {
-            PlanetToExplorer::GenerateResourceResponse { resource } => match resource {
-                Some(oxygen) => Some(oxygen),
-                None => None,
-            },
-            _ => None,
-        };
-
-        // Get Water (ComplexResourceRequest) from main planet
-        // Extract Carbon from the BasicResource enum
-        if let (
-            Some(common_game::components::resource::BasicResource::Carbon(c1)),
-            Some(common_game::components::resource::BasicResource::Carbon(c2)),
-        ) = (carbon_1, carbon_2)
-        {
-            let _ = main_planet
-                .snd_exp_to_planet
-                .send(ExplorerToPlanet::CombineResourceRequest {
-                    explorer_id: 0,
-                    msg: common_game::components::resource::ComplexResourceRequest::Diamond(c1, c2),
-                });
-            let diamond_response = main_planet.rcv_planet_to_exp.recv().unwrap();
-            println!("Diamond combination response received");
-            match diamond_response {
-                PlanetToExplorer::CombineResourceResponse { complex_response } => {
-                    match complex_response {
-                        Ok(_diamond) => {
-                            println!("Diamond created successfully!");
-                            assert!(true, "Diamond should have been created");
-                        }
-                        Err(e) => {
-                            println!("Failed to create Diamond: {:?}", e);
-                            assert!(false, "Diamond creation should not have failed");
-                        }
-                    }
-                }
-                _ => println!("Unexpected response type for CombineResourceRequest"),
-            }
-        } else {
-            panic!("Carbon resources were not the expected type");
         }
     }
 
@@ -612,7 +592,7 @@ mod tests {
             PlanetToExplorer::SupportedCombinationResponse { combination_list } => {
                 println!("Combination list after asteroid: {:?}", combination_list);
 
-                // When asteroid is pending, planet should REMOVE one item → len = 5
+                // When asteroid is pending, planet should REMOVE one item => len = 5
                 assert_eq!(combination_list.len(), 5);
 
                 // Explorer-side decoding:
@@ -620,8 +600,161 @@ mod tests {
 
                 assert!(asteroid_detected, "Explorer failed to detect asteroid");
             }
-            _ => panic!("Wrong response type"),
+            _ => (),
         }
+    }
+
+    // ========================================
+    // COMPLEX RESOURCE COMBINATION TESTS
+    // ========================================
+
+    /// Test Water combination: Hydrogen + Oxygen => Water
+    #[test]
+    fn test_combine_resource_water() {
+        let (main_planet, resource_planet) = spawn_dual_planets();
+        let generator = Forge::new();
+        let explorer_id = 0;
+
+        // Setup
+        register_explorer_with_planet(&main_planet, explorer_id);
+        register_explorer_with_planet(&resource_planet, explorer_id);
+        charge_planet_with_sunrays(&main_planet, &generator, 2);
+        charge_planet_with_sunrays(&resource_planet, &generator, 2);
+
+        // Get Hydrogen from resource planet
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        let hydrogen =
+            get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Hydrogen);
+
+        // Get Oxygen from resource planet
+        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        let oxygen = get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Oxygen);
+
+        // Extract and combine
+        if let (Some(h), Some(o)) = (extract_hydrogen(hydrogen), extract_oxygen(oxygen)) {
+            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            let result = combine_resources(
+                &main_planet,
+                explorer_id,
+                common_game::components::resource::ComplexResourceRequest::Water(h, o),
+            );
+
+            match result {
+                Ok(_water) => println!("Water created successfully!"),
+                Err(e) => panic!("Water creation failed: {:?}", e),
+            }
+        } else {
+            panic!("Failed to extract Hydrogen and Oxygen resources");
+        }
+    }
+    
+    /// Diamond = Carbon + Carbon
+    #[test]
+    fn test_combine_resource_diamond() {
+        let (main_planet, _resource_planet) = spawn_dual_planets();
+        let generator = Forge::new();
+        let explorer_id = 0;
+
+        // Setup
+        register_explorer_with_planet(&main_planet, explorer_id);
+        charge_planet_with_sunrays(&main_planet, &generator, 2); // Rocket + 1 energy cell
+
+        // Get first Carbon
+        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        let carbon_1 = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
+
+        // Get second Carbon
+        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        let carbon_2 = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
+
+        // Extract Carbon values and combine
+        if let (Some(c1), Some(c2)) = (extract_carbon(carbon_1), extract_carbon(carbon_2)) {
+            charge_planet_with_sunrays(&main_planet, &generator, 1); // Energy for combination
+            let result = combine_resources(
+                &main_planet,
+                explorer_id,
+                common_game::components::resource::ComplexResourceRequest::Diamond(c1, c2),
+            );
+
+            match result {
+                Ok(_diamond) => println!("Diamond created successfully!"),
+                Err(e) => panic!("Diamond creation failed: {:?}", e),
+            }
+        } else {
+            panic!("Failed to extract Carbon resources");
+        }
+    }
+
+
+    /// Test Life combination: Water + Carbon => Life
+    #[test]
+    fn test_combine_resource_life() {
+        let (main_planet, resource_planet) = spawn_dual_planets();
+        let generator = Forge::new();
+        let explorer_id = 0;
+
+        // Setup
+        register_explorer_with_planet(&main_planet, explorer_id);
+        register_explorer_with_planet(&resource_planet, explorer_id);
+        charge_planet_with_sunrays(&main_planet, &generator, 2);
+        charge_planet_with_sunrays(&resource_planet, &generator, 2);
+
+        // TODO: Get Water from main planet (requires Water combination first)
+        // TODO: Get Carbon from main planet
+        // TODO: Combine Water + Carbon => Life
+    }
+
+    /// Test Dolphin combination: Water + Life => Dolphin
+    #[test]
+    fn test_combine_resource_dolphin() {
+        let (main_planet, resource_planet) = spawn_dual_planets();
+        let generator = Forge::new();
+        let explorer_id = 0;
+
+        // Setup
+        register_explorer_with_planet(&main_planet, explorer_id);
+        register_explorer_with_planet(&resource_planet, explorer_id);
+        charge_planet_with_sunrays(&main_planet, &generator, 2);
+        charge_planet_with_sunrays(&resource_planet, &generator, 2);
+
+        // TODO: Get Water and Life (requires previous combinations)
+        // TODO: Combine Water + Life => Dolphin
+    }
+
+    /// Test Robot combination: Silicon + Life => Robot
+    #[test]
+    fn test_combine_resource_robot() {
+        let (main_planet, resource_planet) = spawn_dual_planets();
+        let generator = Forge::new();
+        let explorer_id = 0;
+
+        // Setup
+        register_explorer_with_planet(&main_planet, explorer_id);
+        register_explorer_with_planet(&resource_planet, explorer_id);
+        charge_planet_with_sunrays(&main_planet, &generator, 2);
+        charge_planet_with_sunrays(&resource_planet, &generator, 2);
+
+        // TODO: Get Silicon from resource planet
+        // TODO: Get Life from main planet (requires Water + Carbon combination)
+        // TODO: Combine Silicon + Life => Robot
+    }
+
+    /// Test AIPartner combination: Robot + Diamond => AIPartner
+    #[test]
+    fn test_combine_resource_aipartner() {
+        let (main_planet, resource_planet) = spawn_dual_planets();
+        let generator = Forge::new();
+        let explorer_id = 0;
+
+        // Setup
+        register_explorer_with_planet(&main_planet, explorer_id);
+        register_explorer_with_planet(&resource_planet, explorer_id);
+        charge_planet_with_sunrays(&main_planet, &generator, 2);
+        charge_planet_with_sunrays(&resource_planet, &generator, 2);
+
+        // TODO: Get Robot from main planet (requires Silicon + Life combination)
+        // TODO: Get Diamond from main planet (requires Carbon + Carbon combination)
+        // TODO: Combine Robot + Diamond => AIPartner
     }
 
     #[test]
