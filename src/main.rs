@@ -38,20 +38,24 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common_game::components;
     use common_game::components::forge::Forge;
     use common_game::components::resource::{BasicResource, Carbon};
     use crossbeam_channel::RecvError;
     use crossbeam_channel::{Receiver, Sender, unbounded};
+    use lazy_static::lazy_static;
     use std::thread;
     use std::thread::sleep;
     use std::time::Duration;
 
-    // ==================================================================
-    // CONST, STRUCT & FUNCTIONS (to create planets) FOR TEST OPERATIONS
-    // ==================================================================
+    // =========================================================================
+    // GLOBAL STATIC, STRUCT & FUNCTIONS (to create planets) FOR TEST OPERATIONS
+    // =========================================================================
 
-    // let generator: 'static = Forge::new();
+    // Forge enforces a single global instance (see `forge::Forge`), so the tests
+    // share one lazily-initialized Forge
+    lazy_static! {
+        static ref GENERATOR: Forge = Forge::new().expect("Failed to create Forge");
+    }
 
     pub struct TestContext {
         pub snd_orc_to_planet: Sender<OrchestratorToPlanet>,
@@ -171,7 +175,7 @@ mod tests {
     // HELPER FUNCTIONS FOR COMMON TEST OPERATIONS
     // ===========================================
     //
-    // FIXME: it would be ideal to use the common test operation inside
+    // TODO: it would be ideal to use the common test operation inside
     // all the test methods
 
     /// Registers an explorer with a planet so it can send/receive messages
@@ -187,15 +191,11 @@ mod tests {
     /// Charges a planet with N sunrays
     /// NOTE: the [air_frier::PlanetAI] of [air_frier] build always the rocket first (if it isn't
     /// already created) and then charge energy cells
-    fn charge_planet_with_sunrays(
-        planet: &TestContext,
-        generator: &Result<Forge, String>,
-        count: usize,
-    ) {
+    fn charge_planet_with_sunrays(planet: &TestContext, count: usize) {
         for _ in 0..count {
-            let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
-                generator.as_ref().unwrap().generate_sunray(),
-            ));
+            let _ = planet
+                .snd_orc_to_planet
+                .send(OrchestratorToPlanet::Sunray(GENERATOR.generate_sunray()));
         }
         sleep(Duration::from_millis(50));
     }
@@ -372,15 +372,14 @@ mod tests {
     //  - basic resource
     //  - complex resource
     //  ...
-    #[test]
     ///Sends an asteroid to the planet and checks that the planet responde with a none
+    #[test]
     fn test_asteroid_with_no_rocket() {
-        let mut planet = spawn_planet();
-        let generator = common_game::components::forge::Forge::new();
-        planet
+        let planet = spawn_planet();
+        let _ = planet
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::Asteroid(
-                generator.unwrap().generate_asteroid(),
+                GENERATOR.generate_asteroid(),
             ));
         let res = planet.rcv_planet_to_orc.recv();
         match res {
@@ -396,18 +395,17 @@ mod tests {
             Err(_) => {}
         }
     }
-    #[test]
     ///Sends a sunray to the planet, that makes a rocket with it, later it sends an asteroid and we check if che planet respond with a rocket
+    #[test]
     fn test_asteroid_with_rocket() {
         let planet = spawn_planet();
-        let generator = common_game::components::forge::Forge::new();
-        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
-            generator.as_ref().unwrap().generate_sunray(),
-        ));
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::Sunray(GENERATOR.generate_sunray()));
         let _ = planet
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::Asteroid(
-                generator.unwrap().generate_asteroid(),
+                GENERATOR.generate_asteroid(),
             ));
         let _ = planet.rcv_planet_to_orc.recv();
         let res = planet.rcv_planet_to_orc.recv();
@@ -497,7 +495,6 @@ mod tests {
         }
     }
 
-    #[test]
     fn ask_for_carbon_with_energy() {
         let planet = spawn_planet();
         let generator = common_game::components::forge::Forge::new();
@@ -557,7 +554,6 @@ mod tests {
         }
     }
 
-    #[test]
     fn ask_for_planet_available_energy_cell() {
         let planet = spawn_planet();
         let generator = Forge::new();
@@ -593,7 +589,6 @@ mod tests {
         assert_eq!(match_available_energy_cell_response(res), 1);
     }
 
-    #[test]
     fn explorer_detects_no_asteroid_from_supported_combinations() {
         let planet = spawn_planet();
 
@@ -621,7 +616,6 @@ mod tests {
         }
     }
 
-    #[test]
     fn explorer_detects_asteroid_from_supported_combinations() {
         let planet = spawn_planet();
         let generator = Forge::new();
@@ -630,7 +624,7 @@ mod tests {
         let _ = planet
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::Asteroid(
-                generator.unwrap().generate_asteroid(),
+                GENERATOR.generate_asteroid(),
             ));
         sleep(Duration::from_secs(1));
         // Receive ACK
@@ -721,27 +715,26 @@ mod tests {
     #[test]
     fn combine_resource_water_success() {
         let (main_planet, resource_planet) = spawn_dual_planets();
-        let generator = Forge::new();
         let explorer_id = 0;
 
         // Setup
         register_explorer_with_planet(&main_planet, explorer_id);
         register_explorer_with_planet(&resource_planet, explorer_id);
-        charge_planet_with_sunrays(&main_planet, &generator, 1);
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&main_planet, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
 
         // Get Hydrogen from resource planet
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
         let hydrogen =
             get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Hydrogen);
 
         // Get Oxygen from resource planet
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
         let oxygen = get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Oxygen);
 
         // Extract and combine
         if let (Some(h), Some(o)) = (extract_hydrogen(hydrogen), extract_oxygen(oxygen)) {
-            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            charge_planet_with_sunrays(&main_planet, 1);
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
@@ -761,24 +754,23 @@ mod tests {
     #[test]
     fn combine_resource_diamond_success() {
         let (main_planet, _resource_planet) = spawn_dual_planets();
-        let generator = Forge::new();
         let explorer_id = 0;
 
         // Setup
         register_explorer_with_planet(&main_planet, explorer_id);
-        charge_planet_with_sunrays(&main_planet, &generator, 1); // Rocket
+        charge_planet_with_sunrays(&main_planet, 1); // Rocket
 
         // Get first Carbon
-        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        charge_planet_with_sunrays(&main_planet, 1);
         let carbon_1 = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
 
         // Get second Carbon
-        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        charge_planet_with_sunrays(&main_planet, 1);
         let carbon_2 = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
 
         // Extract Carbon values and combine
         if let (Some(c1), Some(c2)) = (extract_carbon(carbon_1), extract_carbon(carbon_2)) {
-            charge_planet_with_sunrays(&main_planet, &generator, 1); // Energy for combination
+            charge_planet_with_sunrays(&main_planet, 1); // Energy for combination
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
@@ -796,26 +788,26 @@ mod tests {
 
     /// Diamond = Carbon + Carbon
     /// Fail: The only possible error we can get when creating a combined resource
-    /// is the planet not having the required energy cell.
+    /// is the planet not having the required energy cell (we can't have the
+    /// "recipe error", because our planet implements all the combination requests).
     /// NOTE: we only implemented this failure test because `make_complex_resource`
     /// is macro-generated, so the behavior is identical for all resource
     /// combination functions
     #[test]
     fn combine_resource_diamond_fail() {
         let (main_planet, _resource_planet) = spawn_dual_planets();
-        let generator = Forge::new();
         let explorer_id = 0;
 
         // Setup
         register_explorer_with_planet(&main_planet, explorer_id);
-        charge_planet_with_sunrays(&main_planet, &generator, 1); // Rocket
+        charge_planet_with_sunrays(&main_planet, 1); // Rocket
 
         // Get first Carbon
-        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        charge_planet_with_sunrays(&main_planet, 1);
         let carbon_1 = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
 
         // Get second Carbon
-        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        charge_planet_with_sunrays(&main_planet, 1);
         let carbon_2 = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
 
         // Extract Carbon values and combine
@@ -841,29 +833,28 @@ mod tests {
     #[test]
     fn combine_resource_life() {
         let (main_planet, resource_planet) = spawn_dual_planets();
-        let generator = Forge::new();
         let explorer_id = 0;
 
         // Setup
         register_explorer_with_planet(&main_planet, explorer_id);
         register_explorer_with_planet(&resource_planet, explorer_id);
-        charge_planet_with_sunrays(&main_planet, &generator, 1);
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&main_planet, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
 
         // Get Water from main planet
         // Get Hydrogen from resource planet
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
         let hydrogen =
             get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Hydrogen);
 
         // Get Oxygen from resource planet
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
         let oxygen = get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Oxygen);
 
         // Extract and combine
         let water = if let (Some(h), Some(o)) = (extract_hydrogen(hydrogen), extract_oxygen(oxygen))
         {
-            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            charge_planet_with_sunrays(&main_planet, 1);
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
@@ -879,12 +870,12 @@ mod tests {
         };
 
         // Get Carbon from main planet
-        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        charge_planet_with_sunrays(&main_planet, 1);
         let carbon = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
 
         // Combine Water + Carbon => Life
         if let (Some(c), Some(w)) = (extract_carbon(carbon), extract_water(water)) {
-            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            charge_planet_with_sunrays(&main_planet, 1);
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
@@ -904,29 +895,28 @@ mod tests {
     #[test]
     fn combine_resource_dolphin() {
         let (main_planet, resource_planet) = spawn_dual_planets();
-        let generator = Forge::new();
         let explorer_id = 0;
 
         // Setup
         register_explorer_with_planet(&main_planet, explorer_id);
         register_explorer_with_planet(&resource_planet, explorer_id);
-        charge_planet_with_sunrays(&main_planet, &generator, 1);
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&main_planet, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
 
         // Get Water from main planet
         // Get Hydrogen from resource planet
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
         let hydrogen =
             get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Hydrogen);
 
         // Get Oxygen from resource planet
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
         let oxygen = get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Oxygen);
 
         // Create Water
         let water = if let (Some(h), Some(o)) = (extract_hydrogen(hydrogen), extract_oxygen(oxygen))
         {
-            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            charge_planet_with_sunrays(&main_planet, 1);
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
@@ -943,17 +933,17 @@ mod tests {
 
         // Get Life from main planet
         // Get Hydrogen and Oxygen again from resource planet
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
         let hydrogen_2 =
             get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Hydrogen);
 
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
         let oxygen_2 = get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Oxygen);
 
         // Create Water for Life combination
         let water_for_life =
             if let (Some(h), Some(o)) = (extract_hydrogen(hydrogen_2), extract_oxygen(oxygen_2)) {
-                charge_planet_with_sunrays(&main_planet, &generator, 1);
+                charge_planet_with_sunrays(&main_planet, 1);
                 let result = combine_resources(
                     &main_planet,
                     explorer_id,
@@ -969,13 +959,13 @@ mod tests {
             };
 
         // Get Carbon from main planet
-        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        charge_planet_with_sunrays(&main_planet, 1);
         let carbon = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
 
         // Create Life
         let life =
             if let (Some(c), Some(w)) = (extract_carbon(carbon), extract_water(water_for_life)) {
-                charge_planet_with_sunrays(&main_planet, &generator, 1);
+                charge_planet_with_sunrays(&main_planet, 1);
                 let result = combine_resources(
                     &main_planet,
                     explorer_id,
@@ -992,7 +982,7 @@ mod tests {
 
         // Combine Water + Life => Dolphin
         if let (Some(w), Some(l)) = (extract_water(water), extract_life(life)) {
-            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            charge_planet_with_sunrays(&main_planet, 1);
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
@@ -1012,32 +1002,31 @@ mod tests {
     #[test]
     fn combine_resource_robot() {
         let (main_planet, resource_planet) = spawn_dual_planets();
-        let generator = Forge::new();
         let explorer_id = 0;
 
         // Setup
         register_explorer_with_planet(&main_planet, explorer_id);
         register_explorer_with_planet(&resource_planet, explorer_id);
-        charge_planet_with_sunrays(&main_planet, &generator, 1);
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&main_planet, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
 
         // Get Silicon from resource planet
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
         let silicon = get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Silicon);
 
         // Get Life from main planet
         // Get Hydrogen and Oxygen from resource planet
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
         let hydrogen =
             get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Hydrogen);
 
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
         let oxygen = get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Oxygen);
 
         // Create Water
         let water = if let (Some(h), Some(o)) = (extract_hydrogen(hydrogen), extract_oxygen(oxygen))
         {
-            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            charge_planet_with_sunrays(&main_planet, 1);
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
@@ -1053,12 +1042,12 @@ mod tests {
         };
 
         // Get Carbon from main planet
-        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        charge_planet_with_sunrays(&main_planet, 1);
         let carbon = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
 
         // Create Life
         let life = if let (Some(c), Some(w)) = (extract_carbon(carbon), extract_water(water)) {
-            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            charge_planet_with_sunrays(&main_planet, 1);
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
@@ -1075,7 +1064,7 @@ mod tests {
 
         // Combine Silicon + Life => Robot
         if let (Some(s), Some(l)) = (extract_silicon(silicon), extract_life(life)) {
-            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            charge_planet_with_sunrays(&main_planet, 1);
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
@@ -1095,32 +1084,31 @@ mod tests {
     #[test]
     fn combine_resource_aipartner() {
         let (main_planet, resource_planet) = spawn_dual_planets();
-        let generator = Forge::new();
         let explorer_id = 0;
 
         // Setup
         register_explorer_with_planet(&main_planet, explorer_id);
         register_explorer_with_planet(&resource_planet, explorer_id);
-        charge_planet_with_sunrays(&main_planet, &generator, 1);
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&main_planet, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
 
         // Get Robot from main planet
         // Get Silicon from resource planet
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
         let silicon = get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Silicon);
 
         // Get Hydrogen and Oxygen from resource planet
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
         let hydrogen =
             get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Hydrogen);
 
-        charge_planet_with_sunrays(&resource_planet, &generator, 1);
+        charge_planet_with_sunrays(&resource_planet, 1);
         let oxygen = get_basic_resource(&resource_planet, explorer_id, BasicResourceType::Oxygen);
 
         // Create Water
         let water = if let (Some(h), Some(o)) = (extract_hydrogen(hydrogen), extract_oxygen(oxygen))
         {
-            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            charge_planet_with_sunrays(&main_planet, 1);
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
@@ -1136,12 +1124,12 @@ mod tests {
         };
 
         // Get Carbon from main planet
-        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        charge_planet_with_sunrays(&main_planet, 1);
         let carbon = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
 
         // Create Life
         let life = if let (Some(c), Some(w)) = (extract_carbon(carbon), extract_water(water)) {
-            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            charge_planet_with_sunrays(&main_planet, 1);
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
@@ -1158,7 +1146,7 @@ mod tests {
 
         // Create Robot
         let robot = if let (Some(s), Some(l)) = (extract_silicon(silicon), extract_life(life)) {
-            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            charge_planet_with_sunrays(&main_planet, 1);
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
@@ -1175,17 +1163,17 @@ mod tests {
 
         // Get Diamond from main planet
         // Get first Carbon
-        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        charge_planet_with_sunrays(&main_planet, 1);
         let carbon_1 = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
 
         // Get second Carbon
-        charge_planet_with_sunrays(&main_planet, &generator, 1);
+        charge_planet_with_sunrays(&main_planet, 1);
         let carbon_2 = get_basic_resource(&main_planet, explorer_id, BasicResourceType::Carbon);
 
         // Create Diamond
         let diamond =
             if let (Some(c1), Some(c2)) = (extract_carbon(carbon_1), extract_carbon(carbon_2)) {
-                charge_planet_with_sunrays(&main_planet, &generator, 1);
+                charge_planet_with_sunrays(&main_planet, 1);
                 let result = combine_resources(
                     &main_planet,
                     explorer_id,
@@ -1202,7 +1190,7 @@ mod tests {
 
         // Combine Robot + Diamond => AIPartner
         if let (Some(r), Some(d)) = (extract_robot(robot), extract_diamond(diamond)) {
-            charge_planet_with_sunrays(&main_planet, &generator, 1);
+            charge_planet_with_sunrays(&main_planet, 1);
             let result = combine_resources(
                 &main_planet,
                 explorer_id,

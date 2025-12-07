@@ -175,7 +175,9 @@ impl planet::PlanetAI for PlanetAI {
                     }
                 }
             }
-            ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: _explorer_id } => match state.full_cell() {
+            ExplorerToPlanet::AvailableEnergyCellRequest {
+                explorer_id: _explorer_id,
+            } => match state.full_cell() {
                 Some(_) => Some(PlanetToExplorer::AvailableEnergyCellResponse {
                     available_cells: 1u32,
                 }),
