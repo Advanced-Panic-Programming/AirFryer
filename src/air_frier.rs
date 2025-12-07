@@ -110,10 +110,10 @@ impl planet::PlanetAI for PlanetAI {
                         planet_id: state.id(),
                         res: Ok(()),
                     }) //?
-                },
-                OrchestratorToPlanet::KillPlanet => {
-                    Some(PlanetToOrchestrator::KillPlanetResult { planet_id: state.id() })
                 }
+                OrchestratorToPlanet::KillPlanet => Some(PlanetToOrchestrator::KillPlanetResult {
+                    planet_id: state.id(),
+                }),
             }
         } else {
             None

@@ -3,10 +3,10 @@ mod air_frier;
 use common_game::components::planet::{Planet, PlanetType};
 use common_game::components::resource::{BasicResourceType, ComplexResourceType};
 use common_game::protocols::messages;
-use crossbeam_channel::{Sender, Receiver, unbounded};
 use common_game::protocols::messages::{
     ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
 };
+use crossbeam_channel::{Receiver, Sender, unbounded};
 fn main() {
     //New AI
     let ia = air_frier::PlanetAI::new();
@@ -44,12 +44,11 @@ fn main() {
 mod tests {
     use super::*;
     use common_game::components::forge::Forge;
+    use crossbeam_channel::RecvError;
+    use crossbeam_channel::{Receiver, Sender, unbounded};
     use std::thread;
     use std::thread::sleep;
     use std::time::Duration;
-    use crossbeam_channel::RecvError;
-    use crossbeam_channel::{Sender, Receiver, unbounded};
-
 
     pub struct TestContext {
         pub snd_orc_to_planet: Sender<OrchestratorToPlanet>,
