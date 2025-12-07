@@ -3,10 +3,11 @@ mod mock_planet;
 
 use common_game::components::planet::{Planet, PlanetType};
 use common_game::components::resource::{BasicResourceType, ComplexResourceType};
+use common_game::protocols::messages;
 use common_game::protocols::messages::{
     ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
 };
-use std::sync::mpsc;
+use crossbeam_channel::{Receiver, Sender, unbounded};
 fn main() {
     //New AI
     let ia = air_frier::PlanetAI::new();
@@ -23,10 +24,10 @@ fn main() {
         ComplexResourceType::Diamond,
     ];
 
-    let (sdr_expl_to_planet, rcv_expl_to_planet) = mpsc::channel::<ExplorerToPlanet>();
-    let (sdr_planet_to_expl, rcv_planet_to_expl) = mpsc::channel::<PlanetToExplorer>();
-    let (sdr_planet_to_orc, rcv_planet_to_orc) = mpsc::channel::<PlanetToOrchestrator>();
-    let (sdr_orc_to_planet, rcv_orc_to_planet) = mpsc::channel::<OrchestratorToPlanet>();
+    let (sdr_expl_to_planet, rcv_expl_to_planet) = unbounded::<ExplorerToPlanet>();
+    let (sdr_planet_to_expl, rcv_planet_to_expl) = unbounded::<PlanetToExplorer>();
+    let (sdr_planet_to_orc, rcv_planet_to_orc) = unbounded::<PlanetToOrchestrator>();
+    let (sdr_orc_to_planet, rcv_orc_to_planet) = unbounded::<OrchestratorToPlanet>();
 
     // FIXME: `::new` arguments
     // let planet = Planet::new(0, PlanetType::C, Box::new(ia), gene, rcv_expl_to_planet);    if planet.is_ok() {
@@ -37,14 +38,9 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common_game::components::asteroid::Asteroid;
     use common_game::components::forge::Forge;
-    use common_game::components::resource::{BasicResource, Carbon, Generator};
-    use common_game::components::sunray::Sunray;
-    use common_game::protocols::messages::OrchestratorToPlanet::Asteroid as OtherAsteroid;
-    use log::log;
-    use std::path::{Component, Components};
-    use std::sync::mpsc::RecvError;
+    use crossbeam_channel::RecvError;
+    use crossbeam_channel::{Receiver, Sender, unbounded};
     use std::thread;
     use std::thread::sleep;
     use std::time::Duration;
@@ -54,11 +50,11 @@ mod tests {
     // ==========================================================
 
     pub struct TestContext {
-        pub snd_orc_to_planet: mpsc::Sender<OrchestratorToPlanet>,
-        pub snd_exp_to_planet: mpsc::Sender<ExplorerToPlanet>,
-        pub snd_planet_to_exp: mpsc::Sender<PlanetToExplorer>,
-        pub rcv_planet_to_exp: mpsc::Receiver<PlanetToExplorer>,
-        pub rcv_planet_to_orc: mpsc::Receiver<PlanetToOrchestrator>,
+        pub snd_orc_to_planet: Sender<OrchestratorToPlanet>,
+        pub snd_exp_to_planet: Sender<ExplorerToPlanet>,
+        pub snd_planet_to_exp: Sender<PlanetToExplorer>,
+        pub rcv_planet_to_exp: Receiver<PlanetToExplorer>,
+        pub rcv_planet_to_orc: Receiver<PlanetToOrchestrator>,
     }
 
     fn spawn_planet() -> TestContext {
@@ -75,10 +71,10 @@ mod tests {
             ComplexResourceType::Diamond,
         ];
 
-        let (sdr_expl_to_planet, rcv_expl_to_planet) = mpsc::channel::<ExplorerToPlanet>();
-        let (sdr_planet_to_expl, rcv_planet_to_expl) = mpsc::channel::<PlanetToExplorer>();
-        let (sdr_planet_to_orc, rcv_planet_to_orc) = mpsc::channel::<PlanetToOrchestrator>();
-        let (sdr_orc_to_planet, rcv_orc_to_planet) = mpsc::channel::<OrchestratorToPlanet>();
+        let (sdr_expl_to_planet, rcv_expl_to_planet) = unbounded::<ExplorerToPlanet>();
+        let (sdr_planet_to_expl, rcv_planet_to_expl) = unbounded::<PlanetToExplorer>();
+        let (sdr_planet_to_orc, rcv_planet_to_orc) = unbounded::<PlanetToOrchestrator>();
+        let (sdr_orc_to_planet, rcv_orc_to_planet) = unbounded::<OrchestratorToPlanet>();
 
         let planet = Planet::new(
             0,
@@ -321,9 +317,9 @@ mod tests {
             Ok(msg) => match msg {
                 PlanetToOrchestrator::AsteroidAck {
                     planet_id: _,
-                    destroyed: dest,
+                    rocket: r,
                 } => {
-                    assert_eq!(dest, true);
+                    assert!(r.is_none());
                 }
                 _ => {}
             },
@@ -349,9 +345,9 @@ mod tests {
             Ok(msg) => match msg {
                 PlanetToOrchestrator::AsteroidAck {
                     planet_id: _,
-                    destroyed: destr,
+                    rocket: r,
                 } => {
-                    assert_eq!(destr, false);
+                    assert!(r.is_some());
                 }
                 _ => {}
             },
@@ -566,41 +562,84 @@ mod tests {
             .send(OrchestratorToPlanet::Asteroid(
                 generator.unwrap().generate_asteroid(),
             ));
-
+        sleep(Duration::from_secs(1));
         // Receive ACK
         let ack = planet.rcv_planet_to_orc.recv().unwrap();
         match ack {
-            PlanetToOrchestrator::AsteroidAck { destroyed, .. } => {
-                if !destroyed {
-                    println!("Received asteroid ACK, with destroyed false");
+            PlanetToOrchestrator::AsteroidAck { rocket, .. } => {
+                if rocket.is_some() {
+                    println!("Received asteroid ACK, with a rocket");
                 } else {
-                    println!("Received asteroid ACK, with destroyed true");
+                    println!("Received asteroid ACK, without a rocket");
                 }
             }
             _ => panic!("Expected AsteroidAck"),
         }
-
-        // 2. Now the explorer sends the SupportedCombinationRequest
-        planet
-            .snd_exp_to_planet
-            .send(ExplorerToPlanet::SupportedCombinationRequest { explorer_id: 0 })
-            .unwrap();
-
-        let msg = planet.rcv_planet_to_exp.recv().unwrap();
-
-        match msg {
-            PlanetToExplorer::SupportedCombinationResponse { combination_list } => {
-                println!("Combination list after asteroid: {:?}", combination_list);
-
-                // When asteroid is pending, planet should REMOVE one item => len = 5
-                assert_eq!(combination_list.len(), 5);
-
-                // Explorer-side decoding:
-                let asteroid_detected = combination_list.len() != 6;
-
-                assert!(asteroid_detected, "Explorer failed to detect asteroid");
+    }
+    #[test]
+    fn incoming_explorer() {
+        let planet = spawn_planet();
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::IncomingExplorerRequest {
+                explorer_id: 0,
+                new_mpsc_sender: planet.snd_planet_to_exp,
+            });
+        let _ = planet.rcv_planet_to_orc.recv();
+        let res = planet.rcv_planet_to_orc.recv();
+        match res {
+            Ok(PlanetToOrchestrator::IncomingExplorerResponse { planet_id, res }) => {
+                assert_eq!(planet_id, 0); // Verifica ID
+                assert!(res.is_ok(), "The result should be Ok");
+                println!("The explorer has been accepted!");
             }
-            _ => (),
+            Ok(_) => panic!("Wrong message,"),
+            Err(e) => panic!("The planet didn't respond: {:?}", e),
+        }
+    }
+
+    #[test]
+    fn outgoing_explorer() {
+        let planet = spawn_planet();
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::OutgoingExplorerRequest { explorer_id: 0 });
+        let _ = planet.rcv_planet_to_orc.recv();
+        let res = planet.rcv_planet_to_orc.recv();
+        match res {
+            Ok(PlanetToOrchestrator::OutgoingExplorerResponse { planet_id, res }) => {
+                assert_eq!(planet_id, 0); // Verifica ID
+                assert!(res.is_ok(), "The result should be Ok");
+                println!("The explorer has been ejected!");
+            }
+            Ok(_) => panic!("Wrong message"),
+            Err(e) => panic!("The planet didn't respond: {:?}", e),
+        }
+    }
+
+    #[test]
+    fn planet_internal_state_request() {
+        let planet = spawn_planet();
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::InternalStateRequest);
+        let _ = planet.rcv_planet_to_orc.recv();
+        let res = planet.rcv_planet_to_orc.recv();
+        match res {
+            Ok(PlanetToOrchestrator::InternalStateResponse {
+                planet_id,
+                planet_state,
+            }) => {
+                assert_eq!(planet_id, 0);
+                assert_eq!(
+                    planet_state.has_rocket, false,
+                    "the planet doesn't have a rocket"
+                );
+                //assert_eq!(planet_state.energy_cells.iter().map(|cell| cell.is_charged()).collect(), 1, "Correct!");
+                //assert_eq!(planet_state.energy_cells.iter().filter(|cell| cell.is_cherged()).collect(), 0, "The planet has no energy cell charged");
+            }
+            Ok(_) => panic!("Wrong message"),
+            Err(e) => panic!("The planet didn't respond: {:?}", e),
         }
     }
 

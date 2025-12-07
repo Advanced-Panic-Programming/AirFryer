@@ -51,5 +51,6 @@ name = "planet"
 version = "0.1.0"
 dependencies = [
  "common-game",
+ "crossbeam-channel",
  "log",
 ]

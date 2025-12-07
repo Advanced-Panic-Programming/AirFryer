@@ -10,6 +10,8 @@ use common_game::protocols::messages::{
     ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
 };
 use std::collections::HashSet;
+use std::thread;
+
 pub struct PlanetAI {
     has_explorer: bool,
     started: bool,
@@ -74,7 +76,7 @@ impl planet::PlanetAI for PlanetAI {
                     let rocket = self.handle_asteroid(state, generator, combinator);
                     Some(PlanetToOrchestrator::AsteroidAck {
                         planet_id: state.id(),
-                        destroyed: false,
+                        rocket,
                     })
                 }
                 OrchestratorToPlanet::StartPlanetAI => {
@@ -90,14 +92,28 @@ impl planet::PlanetAI for PlanetAI {
                     })
                 }
                 OrchestratorToPlanet::InternalStateRequest => {
-                    todo!() //Michele
+                    Some(PlanetToOrchestrator::InternalStateResponse {
+                        planet_id: state.id(),
+                        planet_state: state.to_dummy(),
+                    }) //Michele
                 }
                 OrchestratorToPlanet::IncomingExplorerRequest { .. } => {
-                    todo!() //Michele
+                    self.has_explorer = true;
+                    Some(PlanetToOrchestrator::IncomingExplorerResponse {
+                        planet_id: state.id(),
+                        res: Ok(()),
+                    }) //Michele
                 }
                 OrchestratorToPlanet::OutgoingExplorerRequest { .. } => {
-                    todo!() //?
+                    self.has_explorer = false;
+                    Some(PlanetToOrchestrator::OutgoingExplorerResponse {
+                        planet_id: state.id(),
+                        res: Ok(()),
+                    }) //?
                 }
+                OrchestratorToPlanet::KillPlanet => Some(PlanetToOrchestrator::KillPlanetResult {
+                    planet_id: state.id(),
+                }),
             }
         } else {
             None
