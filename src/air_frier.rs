@@ -10,6 +10,8 @@ use common_game::protocols::messages::{
     ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
 };
 use std::collections::HashSet;
+use std::thread;
+
 pub struct PlanetAI {
     has_explorer: bool,
     started: bool,
@@ -74,7 +76,7 @@ impl planet::PlanetAI for PlanetAI {
                     let rocket = self.handle_asteroid(state, generator, combinator);
                     Some(PlanetToOrchestrator::AsteroidAck {
                         planet_id: state.id(),
-                        destroyed: false,
+                        rocket,
                     })
                 }
                 OrchestratorToPlanet::StartPlanetAI => {
@@ -108,6 +110,9 @@ impl planet::PlanetAI for PlanetAI {
                         planet_id: state.id(),
                         res: Ok(()),
                     }) //?
+                },
+                OrchestratorToPlanet::KillPlanet => {
+                    Some(PlanetToOrchestrator::KillPlanetResult { planet_id: state.id() })
                 }
             }
         } else {

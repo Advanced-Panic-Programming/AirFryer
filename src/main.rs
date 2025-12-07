@@ -2,11 +2,11 @@ mod air_frier;
 
 use common_game::components::planet::{Planet, PlanetType};
 use common_game::components::resource::{BasicResourceType, ComplexResourceType};
-// use common_game::components::energy_cell::EnergyCell;
+use common_game::protocols::messages;
+use crossbeam_channel::{Sender, Receiver, unbounded};
 use common_game::protocols::messages::{
     ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
 };
-use std::sync::mpsc;
 fn main() {
     //New AI
     let ia = air_frier::PlanetAI::new();
@@ -21,10 +21,10 @@ fn main() {
     compl.push(ComplexResourceType::Robot);
     compl.push(ComplexResourceType::AIPartner);
 
-    let (sdr_expl_to_planet, rcv_expl_to_planet) = mpsc::channel::<ExplorerToPlanet>();
-    let (sdr_planet_to_expl, rcv_planet_to_expl) = mpsc::channel::<PlanetToExplorer>();
-    let (sdr_planet_to_orc, rcv_planet_to_orc) = mpsc::channel::<PlanetToOrchestrator>();
-    let (sdr_orc_to_planet, rcv_orc_to_planet) = mpsc::channel::<OrchestratorToPlanet>();
+    let (sdr_expl_to_planet, rcv_expl_to_planet) = unbounded::<ExplorerToPlanet>();
+    let (sdr_planet_to_expl, rcv_planet_to_expl) = unbounded::<PlanetToExplorer>();
+    let (sdr_planet_to_orc, rcv_planet_to_orc) = unbounded::<PlanetToOrchestrator>();
+    let (sdr_orc_to_planet, rcv_orc_to_planet) = unbounded::<OrchestratorToPlanet>();
 
     let planet = Planet::new(
         0,
@@ -43,26 +43,20 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::air_frier::PlanetAI;
-    use common_game::components::asteroid::Asteroid;
     use common_game::components::forge::Forge;
-    use common_game::components::planet::DummyPlanetState;
-    use common_game::components::resource::Generator;
-    use common_game::components::sunray::Sunray;
-    use common_game::protocols::messages::OrchestratorToPlanet::Asteroid as OtherAsteroid;
-    use log::log;
-    use std::path::{Component, Components};
-    use std::sync::mpsc::RecvError;
     use std::thread;
     use std::thread::sleep;
     use std::time::Duration;
+    use crossbeam_channel::RecvError;
+    use crossbeam_channel::{Sender, Receiver, unbounded};
+
 
     pub struct TestContext {
-        pub snd_orc_to_planet: mpsc::Sender<OrchestratorToPlanet>,
-        pub snd_exp_to_planet: mpsc::Sender<ExplorerToPlanet>,
-        pub snd_planet_to_exp: mpsc::Sender<PlanetToExplorer>,
-        pub rcv_planet_to_exp: mpsc::Receiver<PlanetToExplorer>,
-        pub rcv_planet_to_orc: mpsc::Receiver<PlanetToOrchestrator>,
+        pub snd_orc_to_planet: Sender<OrchestratorToPlanet>,
+        pub snd_exp_to_planet: Sender<ExplorerToPlanet>,
+        pub snd_planet_to_exp: Sender<PlanetToExplorer>,
+        pub rcv_planet_to_exp: Receiver<PlanetToExplorer>,
+        pub rcv_planet_to_orc: Receiver<PlanetToOrchestrator>,
     }
     fn spawn_planet() -> TestContext {
         let ia = air_frier::PlanetAI::new();
@@ -77,10 +71,10 @@ mod tests {
         compl.push(ComplexResourceType::Robot);
         compl.push(ComplexResourceType::AIPartner);
 
-        let (sdr_expl_to_planet, rcv_expl_to_planet) = mpsc::channel::<ExplorerToPlanet>();
-        let (sdr_planet_to_expl, rcv_planet_to_expl) = mpsc::channel::<PlanetToExplorer>();
-        let (sdr_planet_to_orc, rcv_planet_to_orc) = mpsc::channel::<PlanetToOrchestrator>();
-        let (sdr_orc_to_planet, rcv_orc_to_planet) = mpsc::channel::<OrchestratorToPlanet>();
+        let (sdr_expl_to_planet, rcv_expl_to_planet) = unbounded::<ExplorerToPlanet>();
+        let (sdr_planet_to_expl, rcv_planet_to_expl) = unbounded::<PlanetToExplorer>();
+        let (sdr_planet_to_orc, rcv_planet_to_orc) = unbounded::<PlanetToOrchestrator>();
+        let (sdr_orc_to_planet, rcv_orc_to_planet) = unbounded::<OrchestratorToPlanet>();
 
         let planet = Planet::new(
             0,
@@ -120,9 +114,9 @@ mod tests {
             Ok(msg) => match msg {
                 PlanetToOrchestrator::AsteroidAck {
                     planet_id: _,
-                    destroyed: dest,
+                    rocket: r,
                 } => {
-                    assert_eq!(dest, true);
+                    assert!(r.is_none());
                 }
                 _ => {}
             },
@@ -148,9 +142,9 @@ mod tests {
             Ok(msg) => match msg {
                 PlanetToOrchestrator::AsteroidAck {
                     planet_id: _,
-                    destroyed: destr,
+                    rocket: r,
                 } => {
-                    assert_eq!(destr, false);
+                    assert!(r.is_some());
                 }
                 _ => {}
             },
@@ -364,15 +358,15 @@ mod tests {
             .send(OrchestratorToPlanet::Asteroid(
                 generator.unwrap().generate_asteroid(),
             ));
-
+        sleep(Duration::from_secs(1));
         // Receive ACK
         let ack = planet.rcv_planet_to_orc.recv().unwrap();
         match ack {
-            PlanetToOrchestrator::AsteroidAck { destroyed, .. } => {
-                if !destroyed {
-                    println!("Received asteroid ACK, with destroyed false");
+            PlanetToOrchestrator::AsteroidAck { rocket, .. } => {
+                if rocket.is_some() {
+                    println!("Received asteroid ACK, with a rocket");
                 } else {
-                    println!("Received asteroid ACK, with destroyed true");
+                    println!("Received asteroid ACK, without a rocket");
                 }
             }
             _ => panic!("Expected AsteroidAck"),
@@ -381,13 +375,13 @@ mod tests {
     #[test]
     fn incoming_explorer() {
         let planet = spawn_planet();
-        let (snd, _rcv) = mpsc::channel();
-        planet
+        let _ = planet
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::IncomingExplorerRequest {
                 explorer_id: 0,
-                new_mpsc_sender: snd,
+                new_mpsc_sender: planet.snd_planet_to_exp,
             });
+        let _ = planet.rcv_planet_to_orc.recv();
         let res = planet.rcv_planet_to_orc.recv();
         match res {
             Ok(PlanetToOrchestrator::IncomingExplorerResponse { planet_id, res }) => {
@@ -395,7 +389,7 @@ mod tests {
                 assert!(res.is_ok(), "The result should be Ok");
                 println!("The explorer has been accepted!");
             }
-            Ok(_) => panic!("Wrong message"),
+            Ok(_) => panic!("Wrong message,"),
             Err(e) => panic!("The planet didn't respond: {:?}", e),
         }
     }
@@ -403,9 +397,10 @@ mod tests {
     #[test]
     fn outgoing_explorer() {
         let planet = spawn_planet();
-        planet
+        let _ = planet
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::OutgoingExplorerRequest { explorer_id: 0 });
+        let _ = planet.rcv_planet_to_orc.recv();
         let res = planet.rcv_planet_to_orc.recv();
         match res {
             Ok(PlanetToOrchestrator::OutgoingExplorerResponse { planet_id, res }) => {
@@ -421,9 +416,10 @@ mod tests {
     #[test]
     fn planet_internal_state_request() {
         let planet = spawn_planet();
-        planet
+        let _ = planet
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::InternalStateRequest);
+        let _ = planet.rcv_planet_to_orc.recv();
         let res = planet.rcv_planet_to_orc.recv();
         match res {
             Ok(PlanetToOrchestrator::InternalStateResponse {
