@@ -2,6 +2,7 @@ mod air_frier;
 
 use common_game::components::planet::{Planet, PlanetType};
 use common_game::components::resource::{BasicResourceType, ComplexResourceType};
+// use common_game::components::energy_cell::EnergyCell;
 use common_game::protocols::messages::{
     ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
 };
@@ -54,6 +55,7 @@ mod tests {
     use std::thread;
     use std::thread::sleep;
     use std::time::Duration;
+    use common_game::components::planet::DummyPlanetState;
 
     pub struct TestContext {
         pub snd_orc_to_planet: mpsc::Sender<OrchestratorToPlanet>,
@@ -375,44 +377,61 @@ mod tests {
             }
             _ => panic!("Expected AsteroidAck"),
         }
-        #[test]
-        fn incoming_explorer() {
-            let planet = spawn_planet();
-            let (snd, _rcv) = mpsc::channel();
-            planet
-                .snd_orc_to_planet
-                .send(OrchestratorToPlanet::IncomingExplorerRequest {
-                    explorer_id: 0,
-                    new_mpsc_sender: snd,
-                });
-            let res = planet.rcv_planet_to_orc.recv();
-            match res {
-                Ok(PlanetToOrchestrator::IncomingExplorerResponse { planet_id, res }) => {
-                    assert_eq!(planet_id, 0); // Verifica ID
-                    assert!(res.is_ok(), "The result should be Ok");
-                    println!("The explorer has been accepted!");
-                }
-                Ok(_) => panic!("Wrong message"),
-                Err(e) => panic!("The planet didn't respond: {:?}", e),
+    }
+    #[test]
+    fn incoming_explorer() {
+        let planet = spawn_planet();
+        let (snd, _rcv) = mpsc::channel();
+        planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::IncomingExplorerRequest {
+                explorer_id: 0,
+                new_mpsc_sender: snd,
+            });
+        let res = planet.rcv_planet_to_orc.recv();
+        match res {
+            Ok(PlanetToOrchestrator::IncomingExplorerResponse { planet_id, res }) => {
+                assert_eq!(planet_id, 0); // Verifica ID
+                assert!(res.is_ok(), "The result should be Ok");
+                println!("The explorer has been accepted!");
             }
+            Ok(_) => panic!("Wrong message"),
+            Err(e) => panic!("The planet didn't respond: {:?}", e),
         }
+    }
 
-        #[test]
-        fn outgoing_explorer() {
-            let planet = spawn_planet();
-            planet
-                .snd_orc_to_planet
-                .send(OrchestratorToPlanet::OutgoingExplorerRequest { explorer_id: 0 });
-            let res = planet.rcv_planet_to_orc.recv();
-            match res {
-                Ok(PlanetToOrchestrator::OutgoingExplorerResponse { planet_id, res }) => {
-                    assert_eq!(planet_id, 0); // Verifica ID
-                    assert!(res.is_ok(), "The result should be Ok");
-                    println!("The explorer has been ejected!");
-                }
-                Ok(_) => panic!("Wrong message"),
-                Err(e) => panic!("The planet didn't respond: {:?}", e),
+    #[test]
+    fn outgoing_explorer() {
+        let planet = spawn_planet();
+        planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::OutgoingExplorerRequest { explorer_id: 0 });
+        let res = planet.rcv_planet_to_orc.recv();
+        match res {
+            Ok(PlanetToOrchestrator::OutgoingExplorerResponse { planet_id, res }) => {
+                assert_eq!(planet_id, 0); // Verifica ID
+                assert!(res.is_ok(), "The result should be Ok");
+                println!("The explorer has been ejected!");
             }
+            Ok(_) => panic!("Wrong message"),
+            Err(e) => panic!("The planet didn't respond: {:?}", e),
+        }
+    }
+
+    #[test]
+    fn planet_internal_state_request () {
+        let planet = spawn_planet();
+        planet.snd_orc_to_planet.send(OrchestratorToPlanet::InternalStateRequest);
+        let res = planet.rcv_planet_to_orc.recv();
+        match res {
+            Ok(PlanetToOrchestrator::InternalStateResponse { planet_id, planet_state}) => {
+                assert_eq!(planet_id, 0);
+                assert_eq!(planet_state.has_rocket, false, "the planet doesn't have a rocket");
+                //assert_eq!(planet_state.energy_cells.iter().map(|cell| cell.is_charged()).collect(), 1, "Correct!");
+                //assert_eq!(planet_state.energy_cells.iter().filter(|cell| cell.is_cherged()).collect(), 0, "The planet has no energy cell charged");
+            }
+            Ok(_) => panic!("Wrong message"),
+            Err(e) => panic!("The planet didn't respond: {:?}", e),
         }
     }
 
