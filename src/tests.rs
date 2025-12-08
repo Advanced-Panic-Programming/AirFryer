@@ -82,7 +82,7 @@ fn spawn_planet() -> TestContext {
         snd_orc_to_planet: sdr_orc_to_planet,
         snd_exp_to_planet: sdr_expl_to_planet,
         snd_planet_to_exp: sdr_planet_to_expl,
-        rcv_planet_to_orc: rcv_planet_to_orc,
+        rcv_planet_to_orc, // NOTE: for tests we don't need this channel
         rcv_planet_to_exp: rcv_planet_to_expl,
     }
 }
@@ -136,7 +136,7 @@ fn spawn_resource_planet() -> TestContext {
         snd_orc_to_planet: sdr_orc_to_planet,
         snd_exp_to_planet: sdr_expl_to_planet,
         snd_planet_to_exp: sdr_planet_to_expl,
-        rcv_planet_to_orc: rcv_planet_to_orc,
+        rcv_planet_to_orc, // NOTE: for tests we don't need this channel
         rcv_planet_to_exp: rcv_planet_to_expl,
     }
 }
@@ -144,7 +144,7 @@ fn spawn_resource_planet() -> TestContext {
 /// Used to have 2 planets:
 /// 1. [air_frier] => our planet
 /// 2. [mock_planet] => mock planet used to generate all the other
-/// basics resources not implemented in our planet
+///    basics resources not implemented in our planet
 fn spawn_dual_planets() -> (TestContext, TestContext) {
     let main_planet = spawn_planet();
     let resource_planet = spawn_resource_planet();
@@ -362,7 +362,7 @@ mod asteroid_tests {
         let res_sunray = planet.rcv_planet_to_orc.recv(); //Reading the response to the sunray
         match res_sunray {
             Ok(PlanetToOrchestrator::SunrayAck { .. }) => {
-                assert!(true);
+                // assert!(true); // `assert!(true)` will be optimized out by the compiler remove it
             }
             _ => {
                 panic!("Sunray Ack not received");
@@ -409,7 +409,7 @@ mod asteroid_tests {
                         panic!("Resource generated successfully!");
                     } else {
                         println!("Resource not generated!");
-                        assert!(true);
+                        // assert!(true); // `assert!(true)` will be optimized out by the compiler remove it
                     }
                 }
                 _ => {
@@ -444,7 +444,7 @@ mod asteroid_tests {
                         panic!("Resource generated successfully!");
                     } else {
                         println!("Resource not generated!");
-                        assert!(true);
+                        // assert!(true); // `assert!(true)` will be optimized out by the compiler remove it
                     }
                 }
                 _ => {
@@ -479,23 +479,22 @@ mod asteroid_tests {
         match res {
             Ok(msg) => match msg {
                 PlanetToExplorer::GenerateResourceResponse { resource } => {
-                    if resource.is_some() {
-                        match resource.unwrap() {
+                    if let Some(r) = resource {
+                        match r {
                             BasicResource::Carbon(_) => {
                                 println!("Carbon generated successfully!");
-                                assert!(true);
+                                // assert!(true); // `assert!(true)` will be optimized out by the compiler remove it
                             }
                             _ => {
                                 panic!("Other resource generated");
                             }
                         }
                     } else {
-                        println!("Resource not generated!");
-                        assert!(false);
+                        panic!("Resource not generated!");
                     }
                 }
                 _ => {
-                    assert!(false);
+                    panic!("Wrong message received!");
                 }
             },
             Err(er) => {
@@ -772,8 +771,8 @@ mod planet_ai_state {
                 planet_state,
             }) => {
                 assert_eq!(planet_id, 0);
-                assert_eq!(
-                    planet_state.has_rocket, false,
+                assert!(
+                    !planet_state.has_rocket,
                     "the planet doesn't have a rocket"
                 );
                 //assert_eq!(planet_state.energy_cells.iter().map(|cell| cell.is_charged()).collect(), 1, "Correct!");
@@ -793,11 +792,11 @@ mod planet_ai_state {
         let res = planet.rcv_planet_to_orc.try_recv();
         match res {
             Ok(_) => {
-                assert!(false);
+                panic!("'Ok()' message... impossible!");
             }
             Err(_) => {
                 print!("Ignored message");
-                assert!(true);
+                // assert!(true); // `assert!(true)` will be optimized out by the compiler remove it
             }
         }
     }
@@ -814,7 +813,7 @@ mod planet_ai_state {
         let res_stop_ack = planet.rcv_planet_to_orc.recv();
         match res_stop_ack {
             Ok(PlanetToOrchestrator::StopPlanetAIResult { .. }) => {
-                assert!(true);
+                // assert!(true); // `assert!(true)` will be optimized out by the compiler remove it
             }
             _ => {
                 panic!("Other message than the expected");
@@ -823,7 +822,7 @@ mod planet_ai_state {
         let res = planet.rcv_planet_to_orc.recv();
         match res {
             Ok(PlanetToOrchestrator::Stopped { .. }) => {
-                assert!(true);
+                // assert!(true); // `assert!(true)` will be optimized out by the compiler remove it
             }
             Err(_) => {
                 panic!("Failed to receive Planet");

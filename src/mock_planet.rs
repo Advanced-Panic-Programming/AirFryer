@@ -22,11 +22,7 @@ impl planet::PlanetAI for MockAI {
     ) -> Option<messages::PlanetToOrchestrator> {
         match msg {
             OrchestratorToPlanet::Sunray(sunray) => {
-                let charge = state.charge_cell(sunray);
-                match charge {
-                    Some(_) => (), // cell already charged
-                    None => (),    // cell charged
-                }
+                let _charge = state.charge_cell(sunray);
                 Some(messages::PlanetToOrchestrator::SunrayAck {
                     planet_id: state.id(),
                 })
@@ -123,11 +119,7 @@ impl planet::PlanetAI for MockAI {
         todo!()
     }
 
-    fn start(&mut self, _state: &planet::PlanetState) {
-        ()
-    }
+    fn start(&mut self, _state: &planet::PlanetState) {}
 
-    fn stop(&mut self, _state: &planet::PlanetState) {
-        ()
-    }
+    fn stop(&mut self, _state: &planet::PlanetState) {}
 }

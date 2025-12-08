@@ -44,12 +44,22 @@ impl planet::PlanetAI for PlanetAI {
         match msg {
             OrchestratorToPlanet::StartPlanetAI => {
                 self.start(state);
+                #[allow(clippy::unnecessary_operation)]
                 PlanetToOrchestrator::StartPlanetAIResult {
+                    // FIXME: this `StartPlanetAIResult` is
+                    // never returned! Written like this
+                    // it's useless. We need to return the
+                    // response
                     planet_id: state.id(),
                 };
             }
             OrchestratorToPlanet::KillPlanet => {
+                #[allow(clippy::unnecessary_operation)]
                 PlanetToOrchestrator::KillPlanetResult {
+                    // FIXME: this `KillPlanetResult` is
+                    // never returned! Written like this
+                    // it's useless. We need to return the
+                    // response
                     planet_id: state.id(),
                 };
             }
