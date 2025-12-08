@@ -98,7 +98,10 @@ mod tests {
             let _ = planet.unwrap().run();
         });
         sleep(Duration::from_millis(10));
+
+        // StartPlanetAIResponse message consumed from the queue
         let _ = rcv_planet_to_orc.recv();
+
         TestContext {
             snd_orc_to_planet: sdr_orc_to_planet,
             snd_exp_to_planet: sdr_expl_to_planet,
@@ -187,6 +190,9 @@ mod tests {
                 explorer_id,
                 new_mpsc_sender: planet.snd_planet_to_exp.clone(),
             });
+
+        // IncomingExplorerResponse message consumed from the queue
+        let _ = planet.rcv_planet_to_orc.recv();
     }
 
     /// Charges a planet with N sunrays
@@ -657,7 +663,7 @@ mod tests {
         assert!(!asteroid_detected, "Explorer was warned uselessly");
     }
 
-    // debug function --> REMOVE
+    // debug function
     fn match_planet_to_orc_message(msg: PlanetToOrchestrator) -> String {
         match msg {
             PlanetToOrchestrator::AsteroidAck { .. } => String::from("AsteroidAck"),
@@ -696,33 +702,6 @@ mod tests {
         let _ = planet
             .snd_exp_to_planet
             .send(ExplorerToPlanet::SupportedCombinationRequest { explorer_id: 0 });
-
-        // DEBUG CODE START TODO: REMOVE AFTER HELPERS FUNCTIONS FIX
-        // Consume message in the queue: StartPlanetAIResult
-        // Orchestrator receives StartPlanetAIResult
-        let started_ai_res = planet.rcv_planet_to_orc.recv();
-        match started_ai_res {
-            Ok(msg) => match msg {
-                PlanetToOrchestrator::StartPlanetAIResult { .. } => {}
-                _ => panic!("Wrong message type 1"),
-            },
-            Err(err) => {
-                panic!("Planet responded with error: {}", err);
-            }
-        }
-
-        // Planet receives IncomingExplorerResponse
-        let incoming_res = planet.rcv_planet_to_orc.recv();
-        match incoming_res {
-            Ok(msg) => match msg {
-                PlanetToOrchestrator::IncomingExplorerResponse { .. } => {}
-                _ => panic!("Wrong message type 2"),
-            },
-            Err(err) => {
-                panic!("Planet responded with error: {}", err);
-            }
-        }
-        // DEBUG CODE END
 
         // Orchestrator receives AsteroidAck
         let ack_res = planet.rcv_planet_to_orc.recv();
