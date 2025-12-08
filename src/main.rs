@@ -40,13 +40,13 @@ mod tests {
     use super::*;
     use common_game::components::forge::Forge;
     use common_game::components::resource::{BasicResource, Carbon};
+    use common_game::protocols::messages::ExplorerToPlanet::CombineResourceRequest;
     use crossbeam_channel::RecvError;
     use crossbeam_channel::{Receiver, Sender, unbounded};
     use lazy_static::lazy_static;
     use std::thread;
     use std::thread::sleep;
     use std::time::Duration;
-
     // =========================================================================
     // GLOBAL STATIC, STRUCT & FUNCTIONS (to create planets) FOR TEST OPERATIONS
     // =========================================================================
@@ -605,36 +605,73 @@ mod tests {
     // PLANET SECRET WARNING
     // ========================================
 
-    fn explorer_detects_no_asteroid_from_supported_combinations() {
-        let planet = spawn_planet();
-
-        // Explorer asks normally
-        planet
-            .snd_exp_to_planet
-            .send(ExplorerToPlanet::SupportedCombinationRequest { explorer_id: 0 })
-            .unwrap();
-
-        let msg = planet.rcv_planet_to_exp.recv().unwrap();
-
-        match msg {
-            PlanetToExplorer::SupportedCombinationResponse { combination_list } => {
-                println!("Combination list: {:?}", combination_list);
-
-                // Full set size must be exactly 6
-                assert_eq!(combination_list.len(), 6);
-
-                // Explorer-side "decoder"
-                let asteroid_detected = combination_list.len() != 6;
-
-                assert!(!asteroid_detected, "Explorer incorrectly detected asteroid");
+    // Helper function
+    // Returns the length of the SupportedCombinations Hashset
+    fn match_supported_combination_request_response(
+        msg_res: Result<PlanetToExplorer, RecvError>,
+    ) -> i32 {
+        match msg_res {
+            Ok(msg) => match msg {
+                PlanetToExplorer::SupportedCombinationResponse { combination_list } => {
+                    combination_list.len() as i32
+                }
+                _ => panic!("Wrong message type"),
+            },
+            Err(err) => {
+                println!("Planet response error: {}", err);
+                panic!("No Response");
             }
-            _ => panic!("Wrong response type"),
         }
     }
 
-    fn explorer_detects_asteroid_from_supported_combinations() {
+    #[test]
+    fn explorer_detects_no_asteroid_from_supported_combinations() {
         let planet = spawn_planet();
-        let generator = Forge::new();
+
+        register_explorer_with_planet(&planet, 0);
+
+        // Explorer asks normally
+        let _ = planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::SupportedCombinationRequest { explorer_id: 0 });
+
+        let msg_res = planet.rcv_planet_to_exp.recv();
+
+        let res = match_supported_combination_request_response(msg_res);
+        // Full set size must be exactly 6
+        assert_eq!(res, 6);
+
+        // Explorer-side "decoder"
+        let asteroid_detected = res != 6;
+        assert!(!asteroid_detected, "Explorer was warned uselessly");
+    }
+
+    // debug function --> REMOVE
+    fn match_planet_to_orc_message(msg: PlanetToOrchestrator) -> String {
+        match msg {
+            PlanetToOrchestrator::AsteroidAck { .. } => String::from("AsteroidAck"),
+            PlanetToOrchestrator::SunrayAck { .. } => String::from("SunrayAck"),
+            PlanetToOrchestrator::StartPlanetAIResult { .. } => String::from("StartPlanetAIResult"),
+            PlanetToOrchestrator::StopPlanetAIResult { .. } => String::from("StopPlanetAIResult"),
+            PlanetToOrchestrator::KillPlanetResult { .. } => String::from("KillPlanetResult"),
+            PlanetToOrchestrator::InternalStateResponse { .. } => {
+                String::from("InternalStateResponse")
+            }
+            PlanetToOrchestrator::IncomingExplorerResponse { .. } => {
+                String::from("IncomingExplorerResponse")
+            }
+            PlanetToOrchestrator::OutgoingExplorerResponse { .. } => {
+                String::from("OutgoingExplorerResponse")
+            }
+            PlanetToOrchestrator::Stopped { .. } => String::from("Stopped"),
+        }
+    }
+
+    #[test]
+    fn single_explorer_detects_asteroid_from_supported_combinations() {
+        let planet = spawn_planet();
+
+        register_explorer_with_planet(&planet, 0);
 
         // Send Asteroid
         let _ = planet
@@ -643,19 +680,100 @@ mod tests {
                 GENERATOR.generate_asteroid(),
             ));
         sleep(Duration::from_secs(1));
-        // Receive ACK
-        let ack = planet.rcv_planet_to_orc.recv().unwrap();
-        match ack {
-            PlanetToOrchestrator::AsteroidAck { rocket, .. } => {
-                if rocket.is_some() {
-                    println!("Received asteroid ACK, with a rocket");
-                } else {
-                    println!("Received asteroid ACK, without a rocket");
-                }
+
+        // Explorer requests CombinationRules normally
+        let _ = planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::SupportedCombinationRequest { explorer_id: 0 });
+
+        // DEBUG CODE START TODO: REMOVE AFTER HELPERS FUNCTIONS FIX
+        // Consume message in the queue: StartPlanetAIResult
+        // Orchestrator receives StartPlanetAIResult
+        let started_ai_res = planet.rcv_planet_to_orc.recv();
+        match started_ai_res {
+            Ok(msg) => match msg {
+                PlanetToOrchestrator::StartPlanetAIResult { .. } => {}
+                _ => panic!("Wrong message type 1"),
+            },
+            Err(err) => {
+                panic!("Planet responded with error: {}", err);
             }
-            _ => panic!("Expected AsteroidAck"),
+        }
+
+        // Planet receives IncomingExplorerResponse
+        let incoming_res = planet.rcv_planet_to_orc.recv();
+        match incoming_res {
+            Ok(msg) => match msg {
+                PlanetToOrchestrator::IncomingExplorerResponse { .. } => {}
+                _ => panic!("Wrong message type 2"),
+            },
+            Err(err) => {
+                panic!("Planet responded with error: {}", err);
+            }
+        }
+        // DEBUG CODE END
+
+        // Orchestrator receives AsteroidAck
+        let ack_res = planet.rcv_planet_to_orc.recv();
+        match ack_res {
+            Ok(ack) => match ack {
+                PlanetToOrchestrator::AsteroidAck { rocket, .. } => {
+                    if rocket.is_some() {
+                        println!("Received asteroid ACK, with a rocket");
+                    } else {
+                        println!("Received asteroid ACK, without a rocket");
+                    }
+                }
+                _ => {
+                    println!("Received: {}", match_planet_to_orc_message(ack));
+                    panic!("Expected AsteroidAck");
+                }
+            },
+            Err(err) => {
+                println!("Planet response error: {}", err);
+                panic!("No response");
+            }
+        }
+
+        // Before the KillPlanetResult the planet should have sent the warning response to the explorer SupportedCombinationRequest request
+        let msg_res = planet.rcv_planet_to_exp.recv();
+        let res = match_supported_combination_request_response(msg_res);
+        // Explorer should receive only 5 combination rules
+        assert_eq!(res, 5);
+
+        // Explorer-side "decoder"
+        let asteroid_detected = res != 6; // Should evaluate to true
+        assert!(asteroid_detected, "Explorer was NOT warned");
+        println!("EXPLORER SUCCESSFULLY WARNED!!!");
+
+        // Orchestrator sends KillPlanet
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::KillPlanet);
+
+        //TODO: Explorer asks to change planet
+        // ...
+
+        //TODO: Orchestrator manages the explorer request before receiving the KillPlanetResult
+        // ...
+        println!("Explorer escaped in time!");
+
+        // Orchestrator receives the KillPlanetResult
+        let kill_res = planet.rcv_planet_to_orc.recv();
+        match kill_res {
+            Ok(ack) => match ack {
+                PlanetToOrchestrator::KillPlanetResult { planet_id } => {
+                    println!("Received kill planet by {}", planet_id);
+                }
+                _ => panic!("Expected KillPlanetResult"),
+            },
+            Err(err) => {
+                println!("Planet response error: {}", err);
+                panic!("No response");
+            }
         }
     }
+
     #[test]
     fn incoming_explorer() {
         let planet = spawn_planet();
