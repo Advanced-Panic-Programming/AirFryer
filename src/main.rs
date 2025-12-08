@@ -494,22 +494,21 @@ mod tests {
             }
         }
     }
-
+    #[test]
     fn ask_for_carbon_with_energy() {
         let planet = spawn_planet();
-        let generator = common_game::components::forge::Forge::new();
         let _ = planet
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::IncomingExplorerRequest {
                 explorer_id: 0,
                 new_mpsc_sender: planet.snd_planet_to_exp,
             });
-        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
-            generator.as_ref().unwrap().generate_sunray(),
-        ));
-        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
-            generator.as_ref().unwrap().generate_sunray(),
-        ));
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::Sunray(GENERATOR.generate_sunray()));
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::Sunray(GENERATOR.generate_sunray()));
         sleep(Duration::from_millis(100));
         let _ = planet
             .snd_exp_to_planet
