@@ -15,8 +15,7 @@ use std::thread;
 pub struct PlanetAI {
     has_explorer: bool,
     started: bool,
-    pending_warning: bool,  // To warn the explorer
-    pending_asteroid: bool, // flag for a received asteroid
+    pending_warning: bool, // To warn the explorer
 }
 impl PlanetAI {
     pub fn new() -> PlanetAI {
@@ -24,7 +23,6 @@ impl PlanetAI {
             has_explorer: false,
             started: false,
             pending_warning: false,
-            pending_asteroid: false,
         }
     }
 }
@@ -49,27 +47,23 @@ impl planet::PlanetAI for PlanetAI {
         if self.started {
             match msg {
                 OrchestratorToPlanet::Sunray(sunray) => {
-                    //Cambiare lo scenario in cui sia presente l'espolatore in modo da tenere solo la cella carica indipendentemente dal razzo
+                    // First scenario: empty energy cell -> charge it
                     if !state.cell(0).is_charged() {
                         state.cell_mut(0).charge(sunray);
 
-                        if state.can_have_rocket() {
-                            if !state.has_rocket() {
-                                let _ = state.build_rocket(0);
-                            }
-                        }
+                        // We don't build the rocket here. We wait for a possible explorer in order to let him use the charge for generating a resource
                     } else {
-                        //Definire meglio e gestire error in caso ci sia già un rocket
+                        // Second scenario: energy cell already charged -> discharge it by creating a rocket (if possible) and recharge it.
                         if !state.has_rocket() {
-                            let _ = state.build_rocket(state.cells_count());
+                            let _ = state.build_rocket(0);
                             state.cell_mut(0).charge(sunray);
                         }
                     }
+                    // Send the SunrayAck
                     Some(PlanetToOrchestrator::SunrayAck { planet_id: 0 })
                 }
                 OrchestratorToPlanet::Asteroid(_) => {
                     // Set asteroid flag and prepare one-cycle warning for explorer
-                    self.pending_asteroid = true;
                     self.pending_warning = true;
 
                     // Try to build the rocket

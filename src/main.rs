@@ -189,8 +189,7 @@ mod tests {
     }
 
     /// Charges a planet with N sunrays
-    /// NOTE: the [air_frier::PlanetAI] of [air_frier] build always the rocket first (if it isn't
-    /// already created) and then charge energy cells
+    /// NOTE: the [air_frier::PlanetAI] of [air_frier] waits to build the rocket until an asteroid is coming
     fn charge_planet_with_sunrays(planet: &TestContext, count: usize) {
         for _ in 0..count {
             let _ = planet
@@ -372,7 +371,7 @@ mod tests {
     //  - basic resource
     //  - complex resource
     //  ...
-    ///Sends an asteroid to the planet and checks that the planet responde with a none
+    ///Sends an asteroid to the planet and checks that the planet responds with a none
     #[test]
     fn test_asteroid_with_no_rocket() {
         let planet = spawn_planet();
@@ -395,7 +394,7 @@ mod tests {
             Err(_) => {}
         }
     }
-    ///Sends a sunray to the planet, that makes a rocket with it, later it sends an asteroid and we check if che planet respond with a rocket
+    ///Send a sunray to the planet, later send an asteroid and check if che planet responds with a rocket
     #[test]
     fn test_asteroid_with_rocket() {
         let planet = spawn_planet();
@@ -538,6 +537,11 @@ mod tests {
         }
     }
 
+    // ========================================
+    // PLANET SUNRAYS MANAGEMENT
+    // ========================================
+
+    // Helper function
     fn match_available_energy_cell_response(res: Result<PlanetToExplorer, RecvError>) -> i32 {
         match res {
             Ok(msg) => match msg {
@@ -553,40 +557,51 @@ mod tests {
         }
     }
 
+    /// Tests how the planet manages sunrays
+    /// 0 Sunray / 1 Sunray / 2 Sunray / 3+ Sunray
+    #[test]
     fn ask_for_planet_available_energy_cell() {
         let planet = spawn_planet();
-        let generator = Forge::new();
+
+        register_explorer_with_planet(&planet, 0);
 
         // Test with no sunray received
         let _ = planet
             .snd_exp_to_planet
             .send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
-        let mut res = planet.rcv_planet_to_exp.recv();
+        let res = planet.rcv_planet_to_exp.recv();
         assert_eq!(match_available_energy_cell_response(res), 0);
 
-        // Test with 1 sunray received -> rocket was build -> expected 0
-        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
-            generator.as_ref().unwrap().generate_sunray(),
-        ));
+        // Test with 1 sunray received -> rocket was NOT build -> expected 1
+        charge_planet_with_sunrays(&planet, 1); // Energy cell charged
         let _ = planet
             .snd_exp_to_planet
             .send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
-        res = planet.rcv_planet_to_exp.recv();
-        assert_eq!(match_available_energy_cell_response(res), 0);
+        let res = planet.rcv_planet_to_exp.recv();
+        assert_eq!(match_available_energy_cell_response(res), 1);
 
         // Test with 2 sunray received -> rocket + 1 charge -> expected 1
-        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
-            generator.as_ref().unwrap().generate_sunray(),
-        )); // Rocket built
-        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(
-            generator.as_ref().unwrap().generate_sunray(),
-        )); // EnergyCell built
+        charge_planet_with_sunrays(&planet, 1); // Energy cell charged
+        charge_planet_with_sunrays(&planet, 1); // Rocket built + Energy Cell Recharged
         let _ = planet
             .snd_exp_to_planet
             .send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
-        res = planet.rcv_planet_to_exp.recv();
+        let res = planet.rcv_planet_to_exp.recv();
+        assert_eq!(match_available_energy_cell_response(res), 1);
+
+        // Test with 3+ sunray received -> rocket + 1 charge -> expected 1
+        // Note: Our Planet has only 1 energy cell
+        charge_planet_with_sunrays(&planet, 3);
+        let _ = planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
+        let res = planet.rcv_planet_to_exp.recv();
         assert_eq!(match_available_energy_cell_response(res), 1);
     }
+
+    // ========================================
+    // PLANET SECRET WARNING
+    // ========================================
 
     fn explorer_detects_no_asteroid_from_supported_combinations() {
         let planet = spawn_planet();
