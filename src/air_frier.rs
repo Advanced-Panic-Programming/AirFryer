@@ -1,20 +1,27 @@
-use common_game::components::planet;
-use common_game::components::planet::{Planet, PlanetState};
-use common_game::components::resource::{
-    BasicResource, BasicResourceType, Combinator, ComplexResource, ComplexResourceType, Generator,
-    GenericResource,
+use common_game::{
+    components::{
+        planet::{self, PlanetState},
+        resource::{
+            BasicResource, BasicResourceType, Combinator, ComplexResource, ComplexResourceRequest,
+            ComplexResourceType, Generator, GenericResource,
+        },
+        rocket::Rocket,
+    },
+    protocols::messages::{
+        ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
+    },
 };
-use common_game::components::rocket::Rocket;
-use common_game::protocols::messages::{
-    ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
-};
+
 use std::collections::HashSet;
 
+#[allow(dead_code)]
 pub struct PlanetAI {
     has_explorer: bool,
     started: bool,
     pending_warning: bool, // To warn the explorer
 }
+
+#[allow(dead_code)]
 impl PlanetAI {
     pub fn new() -> PlanetAI {
         PlanetAI {
@@ -128,12 +135,12 @@ impl planet::PlanetAI for PlanetAI {
         msg: ExplorerToPlanet,
     ) -> Option<PlanetToExplorer> {
         match msg {
-            ExplorerToPlanet::SupportedResourceRequest { explorer_id } => {
+            ExplorerToPlanet::SupportedResourceRequest { explorer_id: _ } => {
                 let mut hs = HashSet::new();
                 hs.insert(BasicResourceType::Carbon);
                 Some(PlanetToExplorer::SupportedResourceResponse { resource_list: hs })
             }
-            ExplorerToPlanet::SupportedCombinationRequest { explorer_id } => {
+            ExplorerToPlanet::SupportedCombinationRequest { explorer_id: _ } => {
                 let mut hs = HashSet::new();
                 hs.insert(ComplexResourceType::AIPartner);
                 hs.insert(ComplexResourceType::Diamond);
@@ -155,7 +162,7 @@ impl planet::PlanetAI for PlanetAI {
                 })
             }
             ExplorerToPlanet::GenerateResourceRequest {
-                explorer_id,
+                explorer_id: _,
                 resource,
             } => {
                 if resource != BasicResourceType::Carbon {
@@ -186,57 +193,41 @@ impl planet::PlanetAI for PlanetAI {
                 explorer_id: _,
                 msg,
             } => match msg {
-                common_game::components::resource::ComplexResourceRequest::Water(
-                    hydrogen,
-                    oxygen,
-                ) => match combinator.make_water(hydrogen, oxygen, state.cell_mut(0)) {
-                    Ok(water) => Some(PlanetToExplorer::CombineResourceResponse {
-                        complex_response: Ok(ComplexResource::Water(water)),
-                    }),
-                    Err((str, hydrogen, oxygen)) => {
-                        Some(PlanetToExplorer::CombineResourceResponse {
-                            complex_response: Err((
-                                str,
-                                GenericResource::BasicResources(
-                                    common_game::components::resource::BasicResource::Hydrogen(
+                ComplexResourceRequest::Water(hydrogen, oxygen) => {
+                    match combinator.make_water(hydrogen, oxygen, state.cell_mut(0)) {
+                        Ok(water) => Some(PlanetToExplorer::CombineResourceResponse {
+                            complex_response: Ok(ComplexResource::Water(water)),
+                        }),
+                        Err((str, hydrogen, oxygen)) => {
+                            Some(PlanetToExplorer::CombineResourceResponse {
+                                complex_response: Err((
+                                    str,
+                                    GenericResource::BasicResources(BasicResource::Hydrogen(
                                         hydrogen,
-                                    ),
-                                ),
-                                GenericResource::BasicResources(
-                                    common_game::components::resource::BasicResource::Oxygen(
-                                        oxygen,
-                                    ),
-                                ),
-                            )),
-                        })
+                                    )),
+                                    GenericResource::BasicResources(BasicResource::Oxygen(oxygen)),
+                                )),
+                            })
+                        }
                     }
-                },
-                common_game::components::resource::ComplexResourceRequest::Diamond(
-                    carbon,
-                    carbon1,
-                ) => match combinator.make_diamond(carbon, carbon1, state.cell_mut(0)) {
-                    Ok(diamond) => Some(PlanetToExplorer::CombineResourceResponse {
-                        complex_response: Ok(ComplexResource::Diamond(diamond)),
-                    }),
-                    Err((str, carbon, carbon1)) => {
-                        Some(PlanetToExplorer::CombineResourceResponse {
-                            complex_response: Err((
-                                str,
-                                GenericResource::BasicResources(
-                                    common_game::components::resource::BasicResource::Carbon(
-                                        carbon,
-                                    ),
-                                ),
-                                GenericResource::BasicResources(
-                                    common_game::components::resource::BasicResource::Carbon(
-                                        carbon1,
-                                    ),
-                                ),
-                            )),
-                        })
+                }
+                ComplexResourceRequest::Diamond(carbon, carbon1) => {
+                    match combinator.make_diamond(carbon, carbon1, state.cell_mut(0)) {
+                        Ok(diamond) => Some(PlanetToExplorer::CombineResourceResponse {
+                            complex_response: Ok(ComplexResource::Diamond(diamond)),
+                        }),
+                        Err((str, carbon, carbon1)) => {
+                            Some(PlanetToExplorer::CombineResourceResponse {
+                                complex_response: Err((
+                                    str,
+                                    GenericResource::BasicResources(BasicResource::Carbon(carbon)),
+                                    GenericResource::BasicResources(BasicResource::Carbon(carbon1)),
+                                )),
+                            })
+                        }
                     }
-                },
-                common_game::components::resource::ComplexResourceRequest::Life(water, carbon) => {
+                }
+                ComplexResourceRequest::Life(water, carbon) => {
                     match combinator.make_life(water, carbon, state.cell_mut(0)) {
                         Ok(life) => Some(PlanetToExplorer::CombineResourceResponse {
                             complex_response: Ok(ComplexResource::Life(life)),
@@ -245,22 +236,16 @@ impl planet::PlanetAI for PlanetAI {
                             Some(PlanetToExplorer::CombineResourceResponse {
                                 complex_response: Err((
                                     str,
-                                    GenericResource::ComplexResources(
-                                        common_game::components::resource::ComplexResource::Water(
-                                            water,
-                                        ),
-                                    ),
-                                    GenericResource::BasicResources(
-                                        common_game::components::resource::BasicResource::Carbon(
-                                            carbon,
-                                        ),
-                                    ),
+                                    GenericResource::ComplexResources(ComplexResource::Water(
+                                        water,
+                                    )),
+                                    GenericResource::BasicResources(BasicResource::Carbon(carbon)),
                                 )),
                             })
                         }
                     }
                 }
-                common_game::components::resource::ComplexResourceRequest::Robot(silicon, life) => {
+                ComplexResourceRequest::Robot(silicon, life) => {
                     match combinator.make_robot(silicon, life, state.cell_mut(0)) {
                         Ok(robot) => Some(PlanetToExplorer::CombineResourceResponse {
                             complex_response: Ok(ComplexResource::Robot(robot)),
@@ -269,22 +254,16 @@ impl planet::PlanetAI for PlanetAI {
                             Some(PlanetToExplorer::CombineResourceResponse {
                                 complex_response: Err((
                                     str,
-                                    GenericResource::BasicResources(
-                                        common_game::components::resource::BasicResource::Silicon(
-                                            silicon,
-                                        ),
-                                    ),
-                                    GenericResource::ComplexResources(
-                                        common_game::components::resource::ComplexResource::Life(
-                                            life,
-                                        ),
-                                    ),
+                                    GenericResource::BasicResources(BasicResource::Silicon(
+                                        silicon,
+                                    )),
+                                    GenericResource::ComplexResources(ComplexResource::Life(life)),
                                 )),
                             })
                         }
                     }
                 }
-                common_game::components::resource::ComplexResourceRequest::Dolphin(water, life) => {
+                ComplexResourceRequest::Dolphin(water, life) => {
                     match combinator.make_dolphin(water, life, state.cell_mut(0)) {
                         Ok(dolphin) => Some(PlanetToExplorer::CombineResourceResponse {
                             complex_response: Ok(ComplexResource::Dolphin(dolphin)),
@@ -293,39 +272,26 @@ impl planet::PlanetAI for PlanetAI {
                             Some(PlanetToExplorer::CombineResourceResponse {
                                 complex_response: Err((
                                     str,
-                                    GenericResource::ComplexResources(
-                                        common_game::components::resource::ComplexResource::Water(
-                                            water,
-                                        ),
-                                    ),
-                                    GenericResource::ComplexResources(
-                                        common_game::components::resource::ComplexResource::Life(
-                                            life,
-                                        ),
-                                    ),
+                                    GenericResource::ComplexResources(ComplexResource::Water(
+                                        water,
+                                    )),
+                                    GenericResource::ComplexResources(ComplexResource::Life(life)),
                                 )),
                             })
                         }
                     }
                 }
-                common_game::components::resource::ComplexResourceRequest::AIPartner(
-                    robot,
-                    diamond,
-                ) => match combinator.make_aipartner(robot, diamond, state.cell_mut(0)) {
+                ComplexResourceRequest::AIPartner(robot, diamond) => match combinator
+                    .make_aipartner(robot, diamond, state.cell_mut(0))
+                {
                     Ok(aipartner) => Some(PlanetToExplorer::CombineResourceResponse {
                         complex_response: Ok(ComplexResource::AIPartner(aipartner)),
                     }),
                     Err((str, robot, diamond)) => Some(PlanetToExplorer::CombineResourceResponse {
                         complex_response: Err((
                             str,
-                            GenericResource::ComplexResources(
-                                common_game::components::resource::ComplexResource::Robot(robot),
-                            ),
-                            GenericResource::ComplexResources(
-                                common_game::components::resource::ComplexResource::Diamond(
-                                    diamond,
-                                ),
-                            ),
+                            GenericResource::ComplexResources(ComplexResource::Robot(robot)),
+                            GenericResource::ComplexResources(ComplexResource::Diamond(diamond)),
                         )),
                     }),
                 },
@@ -336,8 +302,8 @@ impl planet::PlanetAI for PlanetAI {
     fn handle_asteroid(
         &mut self,
         state: &mut PlanetState,
-        generator: &Generator,
-        combinator: &Combinator,
+        _generator: &Generator,
+        _combinator: &Combinator,
     ) -> Option<Rocket> {
         if state.has_rocket() {
             // reset warning flags after using the rocket
@@ -356,12 +322,12 @@ impl planet::PlanetAI for PlanetAI {
         }
     }
 
-    fn start(&mut self, state: &PlanetState) {
+    fn start(&mut self, _state: &PlanetState) {
         self.started = true;
         self.has_explorer = false;
     }
 
-    fn stop(&mut self, state: &PlanetState) {
+    fn stop(&mut self, _state: &PlanetState) {
         self.started = false;
         self.has_explorer = false;
     }

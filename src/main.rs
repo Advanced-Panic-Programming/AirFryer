@@ -1,12 +1,6 @@
 mod air_frier;
 mod mock_planet;
 
-use common_game::components::planet::PlanetType;
-use common_game::components::resource::{BasicResourceType, ComplexResourceType};
-use common_game::protocols::messages::{
-    ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
-};
-use crossbeam_channel::unbounded;
 fn main() {
     //This main represent the initial setup for our type of planet, and it's crafting and generating rules
     /*
@@ -37,19 +31,29 @@ fn main() {
     //Planet::new(0, PlanetType::C, (), vec![], vec![], ((), ()), ((), ()));
      */
 }
+
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use common_game::components::forge::Forge;
-    use common_game::components::planet::Planet;
-    use common_game::components::resource::{BasicResource, Carbon};
-    use common_game::protocols::messages::ExplorerToPlanet::CombineResourceRequest;
-    use crossbeam_channel::RecvError;
-    use crossbeam_channel::{Receiver, Sender, unbounded};
+    use crate::{air_frier, mock_planet};
+
+    use common_game::{
+        components::{
+            forge::Forge, planet::{Planet, PlanetType}, resource::{self, BasicResource, BasicResourceType, Carbon, ComplexResource, ComplexResourceRequest, ComplexResourceType, GenericResource}
+        },
+        protocols::messages::{
+            ExplorerToPlanet::{self},
+            OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
+        },
+    };
+
+    use crossbeam_channel::{Receiver, RecvError, Sender, unbounded};
     use lazy_static::lazy_static;
-    use std::thread;
-    use std::thread::sleep;
-    use std::time::Duration;
+
+    use std::{
+        thread::{self, sleep},
+        time::Duration,
+    };
+
     // =========================================================================
     // GLOBAL STATIC, STRUCT & FUNCTIONS (to create planets) FOR TEST OPERATIONS
     // =========================================================================
@@ -234,13 +238,13 @@ mod tests {
     fn combine_resources(
         planet: &TestContext,
         explorer_id: u32,
-        request: common_game::components::resource::ComplexResourceRequest,
+        request: ComplexResourceRequest,
     ) -> Result<
-        common_game::components::resource::ComplexResource,
+        ComplexResource,
         (
             String,
-            common_game::components::resource::GenericResource,
-            common_game::components::resource::GenericResource,
+            GenericResource,
+            GenericResource,
         ),
     > {
         let _ = planet
@@ -270,7 +274,7 @@ mod tests {
     #[allow(dead_code)]
     fn extract_oxygen(
         resource: Option<BasicResource>,
-    ) -> Option<common_game::components::resource::Oxygen> {
+    ) -> Option<resource::Oxygen> {
         match resource {
             Some(BasicResource::Oxygen(o)) => Some(o),
             _ => None,
@@ -281,7 +285,7 @@ mod tests {
     #[allow(dead_code)]
     fn extract_hydrogen(
         resource: Option<BasicResource>,
-    ) -> Option<common_game::components::resource::Hydrogen> {
+    ) -> Option<resource::Hydrogen> {
         match resource {
             Some(BasicResource::Hydrogen(h)) => Some(h),
             _ => None,
@@ -292,7 +296,7 @@ mod tests {
     #[allow(dead_code)]
     fn extract_silicon(
         resource: Option<BasicResource>,
-    ) -> Option<common_game::components::resource::Silicon> {
+    ) -> Option<resource::Silicon> {
         match resource {
             Some(BasicResource::Silicon(s)) => Some(s),
             _ => None,
@@ -302,10 +306,10 @@ mod tests {
     /// Helper to extract Water from ComplexResource enum
     #[allow(dead_code)]
     fn extract_water(
-        resource: common_game::components::resource::ComplexResource,
-    ) -> Option<common_game::components::resource::Water> {
+        resource: ComplexResource,
+    ) -> Option<resource::Water> {
         match resource {
-            common_game::components::resource::ComplexResource::Water(w) => Some(w),
+            ComplexResource::Water(w) => Some(w),
             _ => None,
         }
     }
@@ -313,10 +317,10 @@ mod tests {
     /// Helper to extract Life from ComplexResource enum
     #[allow(dead_code)]
     fn extract_life(
-        resource: common_game::components::resource::ComplexResource,
-    ) -> Option<common_game::components::resource::Life> {
+        resource: ComplexResource,
+    ) -> Option<resource::Life> {
         match resource {
-            common_game::components::resource::ComplexResource::Life(l) => Some(l),
+            ComplexResource::Life(l) => Some(l),
             _ => None,
         }
     }
@@ -324,10 +328,10 @@ mod tests {
     /// Helper to extract Dolphin from ComplexResource enum
     #[allow(dead_code)]
     fn extract_dolphin(
-        resource: common_game::components::resource::ComplexResource,
-    ) -> Option<common_game::components::resource::Dolphin> {
+        resource: ComplexResource,
+    ) -> Option<resource::Dolphin> {
         match resource {
-            common_game::components::resource::ComplexResource::Dolphin(d) => Some(d),
+            ComplexResource::Dolphin(d) => Some(d),
             _ => None,
         }
     }
@@ -335,10 +339,10 @@ mod tests {
     /// Helper to extract Robot from ComplexResource enum
     #[allow(dead_code)]
     fn extract_robot(
-        resource: common_game::components::resource::ComplexResource,
-    ) -> Option<common_game::components::resource::Robot> {
+        resource: ComplexResource,
+    ) -> Option<resource::Robot> {
         match resource {
-            common_game::components::resource::ComplexResource::Robot(r) => Some(r),
+            ComplexResource::Robot(r) => Some(r),
             _ => None,
         }
     }
@@ -346,10 +350,10 @@ mod tests {
     /// Helper to extract Diamond from ComplexResource enum
     #[allow(dead_code)]
     fn extract_diamond(
-        resource: common_game::components::resource::ComplexResource,
-    ) -> Option<common_game::components::resource::Diamond> {
+        resource: ComplexResource,
+    ) -> Option<resource::Diamond> {
         match resource {
-            common_game::components::resource::ComplexResource::Diamond(d) => Some(d),
+            ComplexResource::Diamond(d) => Some(d),
             _ => None,
         }
     }
@@ -357,10 +361,10 @@ mod tests {
     /// Helper to extract AIPartner from ComplexResource enum
     #[allow(dead_code)]
     fn extract_aipartner(
-        resource: common_game::components::resource::ComplexResource,
-    ) -> Option<common_game::components::resource::AIPartner> {
+        resource: ComplexResource,
+    ) -> Option<resource::AIPartner> {
         match resource {
-            common_game::components::resource::ComplexResource::AIPartner(a) => Some(a),
+            ComplexResource::AIPartner(a) => Some(a),
             _ => None,
         }
     }
@@ -868,7 +872,7 @@ mod tests {
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
-                common_game::components::resource::ComplexResourceRequest::Water(h, o),
+                ComplexResourceRequest::Water(h, o),
             );
 
             match result {
@@ -904,7 +908,7 @@ mod tests {
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
-                common_game::components::resource::ComplexResourceRequest::Diamond(c1, c2),
+                ComplexResourceRequest::Diamond(c1, c2),
             );
 
             match result {
@@ -947,7 +951,7 @@ mod tests {
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
-                common_game::components::resource::ComplexResourceRequest::Diamond(c1, c2),
+                ComplexResourceRequest::Diamond(c1, c2),
             );
 
             match result {
@@ -988,7 +992,7 @@ mod tests {
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
-                common_game::components::resource::ComplexResourceRequest::Water(h, o),
+                ComplexResourceRequest::Water(h, o),
             );
 
             match result {
@@ -1009,7 +1013,7 @@ mod tests {
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
-                common_game::components::resource::ComplexResourceRequest::Life(w, c),
+                ComplexResourceRequest::Life(w, c),
             );
 
             match result {
@@ -1050,7 +1054,7 @@ mod tests {
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
-                common_game::components::resource::ComplexResourceRequest::Water(h, o),
+                ComplexResourceRequest::Water(h, o),
             );
 
             match result {
@@ -1077,7 +1081,7 @@ mod tests {
                 let result = combine_resources(
                     &main_planet,
                     explorer_id,
-                    common_game::components::resource::ComplexResourceRequest::Water(h, o),
+                    ComplexResourceRequest::Water(h, o),
                 );
 
                 match result {
@@ -1099,7 +1103,7 @@ mod tests {
                 let result = combine_resources(
                     &main_planet,
                     explorer_id,
-                    common_game::components::resource::ComplexResourceRequest::Life(w, c),
+                    ComplexResourceRequest::Life(w, c),
                 );
 
                 match result {
@@ -1116,7 +1120,7 @@ mod tests {
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
-                common_game::components::resource::ComplexResourceRequest::Dolphin(w, l),
+                ComplexResourceRequest::Dolphin(w, l),
             );
 
             match result {
@@ -1160,7 +1164,7 @@ mod tests {
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
-                common_game::components::resource::ComplexResourceRequest::Water(h, o),
+                ComplexResourceRequest::Water(h, o),
             );
 
             match result {
@@ -1181,7 +1185,7 @@ mod tests {
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
-                common_game::components::resource::ComplexResourceRequest::Life(w, c),
+                ComplexResourceRequest::Life(w, c),
             );
 
             match result {
@@ -1198,7 +1202,7 @@ mod tests {
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
-                common_game::components::resource::ComplexResourceRequest::Robot(s, l),
+                ComplexResourceRequest::Robot(s, l),
             );
 
             match result {
@@ -1242,7 +1246,7 @@ mod tests {
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
-                common_game::components::resource::ComplexResourceRequest::Water(h, o),
+                ComplexResourceRequest::Water(h, o),
             );
 
             match result {
@@ -1263,7 +1267,7 @@ mod tests {
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
-                common_game::components::resource::ComplexResourceRequest::Life(w, c),
+                ComplexResourceRequest::Life(w, c),
             );
 
             match result {
@@ -1280,7 +1284,7 @@ mod tests {
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
-                common_game::components::resource::ComplexResourceRequest::Robot(s, l),
+                ComplexResourceRequest::Robot(s, l),
             );
 
             match result {
@@ -1307,7 +1311,7 @@ mod tests {
                 let result = combine_resources(
                     &main_planet,
                     explorer_id,
-                    common_game::components::resource::ComplexResourceRequest::Diamond(c1, c2),
+                    ComplexResourceRequest::Diamond(c1, c2),
                 );
 
                 match result {
@@ -1324,7 +1328,7 @@ mod tests {
             let result = combine_resources(
                 &main_planet,
                 explorer_id,
-                common_game::components::resource::ComplexResourceRequest::AIPartner(r, d),
+                ComplexResourceRequest::AIPartner(r, d),
             );
 
             match result {
@@ -1339,7 +1343,7 @@ mod tests {
     #[test]
     fn multiple_start_ai_messages_are_ignored() {
         let planet = spawn_planet();
-        let snd = planet
+        let _snd = planet
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::StartPlanetAI);
         let res = planet.rcv_planet_to_orc.try_recv();
