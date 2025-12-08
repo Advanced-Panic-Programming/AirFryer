@@ -416,7 +416,9 @@ mod tests {
                 } => {
                     assert!(r.is_some());
                 }
-                _ => {}
+                _ => {
+                    panic!("Wrong message type");
+                }
             },
             Err(_) => {
                 assert!(false);
