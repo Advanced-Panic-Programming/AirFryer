@@ -1,8 +1,8 @@
 use common_game::components::planet;
-use common_game::components::planet::{PlanetState};
+use common_game::components::planet::PlanetState;
 use common_game::components::resource::{
-    BasicResource, BasicResourceType, Combinator, ComplexResource,
-    ComplexResourceType, Generator, GenericResource,
+    BasicResource, BasicResourceType, Combinator, ComplexResource, ComplexResourceType, Generator,
+    GenericResource,
 };
 use common_game::components::rocket::Rocket;
 use common_game::protocols::messages::{

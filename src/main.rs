@@ -1,12 +1,12 @@
 mod air_frier;
 mod mock_planet;
 
-use common_game::components::planet::{PlanetType};
+use common_game::components::planet::PlanetType;
 use common_game::components::resource::{BasicResourceType, ComplexResourceType};
 use common_game::protocols::messages::{
     ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
 };
-use crossbeam_channel::{unbounded};
+use crossbeam_channel::unbounded;
 fn main() {
     //New AI
     let ia = air_frier::PlanetAI::new();
@@ -38,14 +38,14 @@ fn main() {
 mod tests {
     use super::*;
     use common_game::components::forge::Forge;
+    use common_game::components::planet::Planet;
     use common_game::components::resource::{BasicResource, Carbon};
-    use crossbeam_channel::{RecvError};
+    use crossbeam_channel::RecvError;
     use crossbeam_channel::{Receiver, Sender, unbounded};
     use lazy_static::lazy_static;
     use std::thread;
-    use std::thread::{sleep};
+    use std::thread::sleep;
     use std::time::Duration;
-    use common_game::components::planet::Planet;
     // =========================================================================
     // GLOBAL STATIC, STRUCT & FUNCTIONS (to create planets) FOR TEST OPERATIONS
     // =========================================================================
@@ -389,7 +389,9 @@ mod tests {
                 } => {
                     assert!(r.is_none());
                 }
-                _ => {}
+                _ => {
+                    panic!("Other message received!")
+                }
             },
             Err(_) => {}
         }
@@ -408,12 +410,12 @@ mod tests {
             ));
         let res_sunray = planet.rcv_planet_to_orc.recv(); //Reading the response to the sunray
         match res_sunray {
-            Ok(PlanetToOrchestrator::SunrayAck { .. }) =>{
+            Ok(PlanetToOrchestrator::SunrayAck { .. }) => {
                 assert!(true);
             }
-            _=>{
-                println!("Sunray Ack not received");
-                assert!(false);}
+            _ => {
+                panic!("Sunray Ack not received");
+            }
         }
         let res = planet.rcv_planet_to_orc.recv();
         match res {
@@ -424,10 +426,12 @@ mod tests {
                 } => {
                     assert!(r.is_some());
                 }
-                _ => {assert!(false);}
+                _ => {
+                    panic!("Other message received!")
+                }
             },
             Err(_) => {
-                assert!(false);
+                panic!("Error!");
             }
         }
     }
@@ -451,19 +455,18 @@ mod tests {
             Ok(msg) => match msg {
                 PlanetToExplorer::GenerateResourceResponse { resource } => {
                     if resource.is_some() {
-                        println!("Resource generated successfully!");
-                        assert!(false);
+                        panic!("Resource generated successfully!");
                     } else {
                         println!("Resource not generated!");
                         assert!(true);
                     }
                 }
                 _ => {
-                    assert!(false);
+                    panic!("Other message received!")
                 }
             },
             Err(_) => {
-                println!("Result error");
+                panic!("Result error");
             }
         }
     }
@@ -487,19 +490,18 @@ mod tests {
             Ok(msg) => match msg {
                 PlanetToExplorer::GenerateResourceResponse { resource } => {
                     if resource.is_some() {
-                        println!("Resource generated successfully!");
-                        assert!(false);
+                        panic!("Resource generated successfully!");
                     } else {
                         println!("Resource not generated!");
                         assert!(true);
                     }
                 }
                 _ => {
-                    assert!(false);
+                    panic!("Other message received!");
                 }
             },
             Err(_) => {
-                println!("Result error");
+                panic!("Result error");
             }
         }
     }
@@ -712,9 +714,9 @@ mod tests {
         let res = planet.rcv_planet_to_orc.recv();
         match res {
             Ok(PlanetToOrchestrator::InternalStateResponse {
-                   planet_id,
-                   planet_state,
-               }) => {
+                planet_id,
+                planet_state,
+            }) => {
                 assert_eq!(planet_id, 0);
                 assert_eq!(
                     planet_state.has_rocket, false,
@@ -1230,7 +1232,9 @@ mod tests {
     #[test]
     fn multiple_start_ai_messages_are_ignored() {
         let planet = spawn_planet();
-        let snd = planet.snd_orc_to_planet.send(OrchestratorToPlanet::StartPlanetAI);
+        let snd = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::StartPlanetAI);
         let res = planet.rcv_planet_to_orc.try_recv();
         match res {
             Ok(_) => {
@@ -1246,16 +1250,19 @@ mod tests {
     #[test]
     fn multiple_stop_ai_messages_are_ignored() {
         let planet = spawn_planet();
-        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::StopPlanetAI);
-        let _  = planet.snd_orc_to_planet.send(OrchestratorToPlanet::StopPlanetAI);
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::StopPlanetAI);
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::StopPlanetAI);
         let res_stop_ack = planet.rcv_planet_to_orc.recv();
         match res_stop_ack {
             Ok(PlanetToOrchestrator::StopPlanetAIResult { .. }) => {
                 assert!(true);
             }
-            _=> {
-                println!("Other message than the expected");
-                assert!(false);
+            _ => {
+                panic!("Other message than the expected");
             }
         }
         let res = planet.rcv_planet_to_orc.recv();
@@ -1266,7 +1273,7 @@ mod tests {
             Err(_) => {
                 panic!("Failed to receive Planet");
             }
-            _=>{
+            _ => {
                 panic!("Failed to receive Planet, other message");
             }
         }
