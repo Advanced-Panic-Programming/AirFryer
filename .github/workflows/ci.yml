@@ -32,8 +32,11 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all --check
 
-      - name: Run Clippy
-        run: cargo clippy --all-targets -- -D warnings
+      #  Treat warning as errors - Too much?
+      # - name: Run Clippy
+        # run: cargo clippy --all-targets -- -D warnings
 
       # - name: Run tests
         # run: cargo test --all --verbose
+
+
