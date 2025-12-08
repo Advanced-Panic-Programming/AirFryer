@@ -395,7 +395,7 @@ mod tests {
             Err(_) => {}
         }
     }
-    ///Sends a sunray to the planet, that makes a rocket with it, later it sends an asteroid and we check if che planet respond with a rocket
+    ///Send a sunray to the planet, later send an asteroid and check if che planet responds with a rocket
     #[test]
     fn test_asteroid_with_rocket() {
         let planet = spawn_planet();
