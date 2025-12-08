@@ -8,6 +8,8 @@ use common_game::protocols::messages::{
 };
 use crossbeam_channel::unbounded;
 fn main() {
+    //This main represent the initial setup for our type of planet, and it's crafting and generating rules
+    /*
     //New AI
     let ia = air_frier::PlanetAI::new();
 
@@ -28,11 +30,12 @@ fn main() {
     let (sdr_planet_to_orc, rcv_planet_to_orc) = unbounded::<PlanetToOrchestrator>();
     let (sdr_orc_to_planet, rcv_orc_to_planet) = unbounded::<OrchestratorToPlanet>();
 
-    // FIXME: `::new` arguments
+    //
     // let planet = Planet::new(0, PlanetType::C, Box::new(ia), gene, rcv_expl_to_planet);    if planet.is_ok() {
     //    planet.unwrap().run();
     //}
     //Planet::new(0, PlanetType::C, (), vec![], vec![], ((), ()), ((), ()));
+     */
 }
 #[cfg(test)]
 mod tests {
@@ -400,7 +403,9 @@ mod tests {
                     panic!("Other message received!")
                 }
             },
-            Err(_) => {}
+            Err(er) => {
+                panic!("Error response: {:?}", er)
+            }
         }
     }
     ///Send a sunray to the planet, later send an asteroid and check if che planet responds with a rocket
@@ -437,8 +442,8 @@ mod tests {
                     panic!("Other message received!")
                 }
             },
-            Err(_) => {
-                panic!("Error!");
+            Err(er) => {
+                panic!("Error received: {:?}", er);
             }
         }
     }
@@ -472,8 +477,8 @@ mod tests {
                     panic!("Other message received!")
                 }
             },
-            Err(_) => {
-                panic!("Result error");
+            Err(er) => {
+                panic!("Result error: {:?}", er);
             }
         }
     }
@@ -507,8 +512,8 @@ mod tests {
                     panic!("Other message received!");
                 }
             },
-            Err(_) => {
-                panic!("Result error");
+            Err(er) => {
+                panic!("Result error: {:?}", er);
             }
         }
     }
@@ -524,9 +529,6 @@ mod tests {
         let _ = planet
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::Sunray(GENERATOR.generate_sunray()));
-        let _ = planet
-            .snd_orc_to_planet
-            .send(OrchestratorToPlanet::Sunray(GENERATOR.generate_sunray()));
         sleep(Duration::from_millis(100));
         let _ = planet
             .snd_exp_to_planet
@@ -539,8 +541,15 @@ mod tests {
             Ok(msg) => match msg {
                 PlanetToExplorer::GenerateResourceResponse { resource } => {
                     if resource.is_some() {
-                        println!("Resource generated successfully!");
-                        assert!(true);
+                        match resource.unwrap() {
+                            BasicResource::Carbon(_) => {
+                                println!("Carbon generated successfully!");
+                                assert!(true);
+                            }
+                            _ => {
+                                panic!("Other resource generated");
+                            }
+                        }
                     } else {
                         println!("Resource not generated!");
                         assert!(false);
@@ -550,8 +559,8 @@ mod tests {
                     assert!(false);
                 }
             },
-            Err(_) => {
-                println!("Result error");
+            Err(er) => {
+                panic!("Result error: {:?}", er);
             }
         }
     }
@@ -607,7 +616,6 @@ mod tests {
             .send(ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: 0 });
         let res = planet.rcv_planet_to_exp.recv();
         assert_eq!(match_available_energy_cell_response(res), 1);
-
         // Test with 3+ sunray received -> rocket + 1 charge -> expected 1
         // Note: Our Planet has only 1 energy cell
         charge_planet_with_sunrays(&planet, 3);
@@ -663,7 +671,8 @@ mod tests {
         assert!(!asteroid_detected, "Explorer was warned uselessly");
     }
 
-    // debug function
+    //Debug used function
+    /*
     fn match_planet_to_orc_message(msg: PlanetToOrchestrator) -> String {
         match msg {
             PlanetToOrchestrator::AsteroidAck { .. } => String::from("AsteroidAck"),
@@ -683,6 +692,7 @@ mod tests {
             PlanetToOrchestrator::Stopped { .. } => String::from("Stopped"),
         }
     }
+     */
 
     #[test]
     fn explorer_detects_asteroid_from_supported_combinations() {
@@ -715,7 +725,6 @@ mod tests {
                     }
                 }
                 _ => {
-                    println!("Received: {}", match_planet_to_orc_message(ack));
                     panic!("Expected AsteroidAck");
                 }
             },
@@ -741,10 +750,10 @@ mod tests {
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::KillPlanet);
 
-        //TODO: Explorer asks to change planet
+        //Wil be implemented: Explorer asks to change planet
         // ...
 
-        //TODO: Orchestrator manages the explorer request before receiving the KillPlanetResult
+        //Will be implemented: Orchestrator manages the explorer request before receiving the KillPlanetResult
         // ...
         println!("Explorer escaped in time!");
 

@@ -1,5 +1,5 @@
 use common_game::components::planet;
-use common_game::components::planet::PlanetState;
+use common_game::components::planet::{Planet, PlanetState};
 use common_game::components::resource::{
     BasicResource, BasicResourceType, Combinator, ComplexResource, ComplexResourceType, Generator,
     GenericResource,
@@ -24,6 +24,7 @@ impl PlanetAI {
         }
     }
 }
+
 impl planet::PlanetAI for PlanetAI {
     fn handle_orchestrator_msg(
         &mut self,
@@ -32,11 +33,16 @@ impl planet::PlanetAI for PlanetAI {
         combinator: &Combinator,
         msg: OrchestratorToPlanet,
     ) -> Option<PlanetToOrchestrator> {
-        //If the planet is stopped, I check if the message i receive is the start message, else I return None
+        //If the planet is stopped, I check if the message I receive is the start message, else I return None
         match msg {
             OrchestratorToPlanet::StartPlanetAI => {
                 self.start(state);
                 PlanetToOrchestrator::StartPlanetAIResult {
+                    planet_id: state.id(),
+                };
+            }
+            OrchestratorToPlanet::KillPlanet => {
+                PlanetToOrchestrator::KillPlanetResult {
                     planet_id: state.id(),
                 };
             }
@@ -58,7 +64,9 @@ impl planet::PlanetAI for PlanetAI {
                         }
                     }
                     // Send the SunrayAck
-                    Some(PlanetToOrchestrator::SunrayAck { planet_id: 0 })
+                    Some(PlanetToOrchestrator::SunrayAck {
+                        planet_id: state.id(),
+                    })
                 }
                 OrchestratorToPlanet::Asteroid(_) => {
                     // Set asteroid flag and prepare one-cycle warning for explorer
