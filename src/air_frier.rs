@@ -139,6 +139,8 @@ impl planet::PlanetAI for PlanetAI {
                 // We remove AIPartner to encode bit = 1 ("asteroid arriving").
                 if self.pending_warning {
                     hs.remove(&ComplexResourceType::AIPartner);
+                    // Reset flag
+                    self.pending_warning = false;
                 }
                 Some(PlanetToExplorer::SupportedCombinationResponse {
                     combination_list: hs,
