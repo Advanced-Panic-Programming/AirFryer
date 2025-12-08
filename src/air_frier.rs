@@ -127,11 +127,6 @@ impl planet::PlanetAI for PlanetAI {
                 hs.insert(BasicResourceType::Carbon);
                 Some(PlanetToExplorer::SupportedResourceResponse { resource_list: hs })
             }
-            ExplorerToPlanet::SupportedResourceRequest { explorer_id } => {
-                let mut hs = HashSet::new();
-                hs.insert(BasicResourceType::Carbon);
-                Some(PlanetToExplorer::SupportedResourceResponse { resource_list: hs })
-            }
             ExplorerToPlanet::SupportedCombinationRequest { explorer_id } => {
                 let mut hs = HashSet::new();
                 hs.insert(ComplexResourceType::AIPartner);
