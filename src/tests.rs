@@ -1,4 +1,4 @@
-use crate::{air_frier, mock_planet};
+use crate::{air_fryer, mock_planet};
 
 use common_game::{
     components::{
@@ -42,7 +42,7 @@ pub struct TestContext {
 }
 
 fn spawn_planet() -> TestContext {
-    let ia = air_frier::PlanetAI::new();
+    let ia = air_fryer::PlanetAI::new();
 
     let gene: Vec<BasicResourceType> = vec![BasicResourceType::Carbon];
 
