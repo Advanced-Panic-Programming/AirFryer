@@ -771,10 +771,7 @@ mod planet_ai_state {
                 planet_state,
             }) => {
                 assert_eq!(planet_id, 0);
-                assert!(
-                    !planet_state.has_rocket,
-                    "the planet doesn't have a rocket"
-                );
+                assert!(!planet_state.has_rocket, "the planet doesn't have a rocket");
                 //assert_eq!(planet_state.energy_cells.iter().map(|cell| cell.is_charged()).collect(), 1, "Correct!");
                 //assert_eq!(planet_state.energy_cells.iter().filter(|cell| cell.is_cherged()).collect(), 0, "The planet has no energy cell charged");
             }
