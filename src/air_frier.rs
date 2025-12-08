@@ -15,7 +15,7 @@ use std::thread;
 pub struct PlanetAI {
     has_explorer: bool,
     started: bool,
-    pending_warning: bool,  // To warn the explorer
+    pending_warning: bool, // To warn the explorer
 }
 impl PlanetAI {
     pub fn new() -> PlanetAI {
@@ -52,8 +52,8 @@ impl planet::PlanetAI for PlanetAI {
                         state.cell_mut(0).charge(sunray);
 
                         // We don't build the rocket here. We wait for a possible explorer in order to let him use the charge for generating a resource
-
-                    } else { // Second scenario: energy cell already charged -> discharge it by creating a rocket (if possible) and recharge it.
+                    } else {
+                        // Second scenario: energy cell already charged -> discharge it by creating a rocket (if possible) and recharge it.
                         if !state.has_rocket() {
                             let _ = state.build_rocket(0);
                             state.cell_mut(0).charge(sunray);
