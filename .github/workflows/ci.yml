@@ -1,0 +1,42 @@
+name: Rust CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: rustfmt, clippy
+          override: true
+
+      # NOTE: Currently, we are not running "cargo check" on the project due to the
+      # need for personal SSH access. Since `common_crate` has restricted visibility,
+      # using personal SSH keys or tokens would be required. To avoid exposing sensitive
+      # information, such as SSH keys or tokens, even in the Secret repository section,
+      # we are temporarily skipping these steps.
+      # - name: Run cargo check
+        # run: cargo check --all-targets
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      #  Treat warning as errors - Too much?
+      # - name: Run Clippy
+        # run: cargo clippy --all-targets -- -D warnings
+
+      # - name: Run tests
+        # run: cargo test --all --verbose
+
+
