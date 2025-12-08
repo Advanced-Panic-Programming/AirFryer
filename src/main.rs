@@ -685,7 +685,7 @@ mod tests {
     }
 
     #[test]
-    fn single_explorer_detects_asteroid_from_supported_combinations() {
+    fn explorer_detects_asteroid_from_supported_combinations() {
         let planet = spawn_planet();
 
         register_explorer_with_planet(&planet, 0);
