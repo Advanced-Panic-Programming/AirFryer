@@ -157,4 +157,4 @@ Planned improvements for upcoming releases:
 
 -  Add logging for all state transitions
 
-For a complete list of proposed features and known issues, see our [GitHub Issues](https://github.com/Advanced-Panic-Programming/Main/issues).
+For a complete list of proposed features and known issues, see our [GitHub Issues](https://github.com/Advanced-Panic-Programming/AirFryer/issues).
