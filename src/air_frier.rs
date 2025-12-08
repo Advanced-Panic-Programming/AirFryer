@@ -1,16 +1,14 @@
 use common_game::components::planet;
-use common_game::components::planet::{PlanetState, PlanetType};
+use common_game::components::planet::PlanetState;
 use common_game::components::resource::{
-    BasicResource, BasicResourceType, Combinator, ComplexResource, ComplexResourceRequest,
-    ComplexResourceType, Generator, GenericResource,
+    BasicResource, BasicResourceType, Combinator, ComplexResource, ComplexResourceType, Generator,
+    GenericResource,
 };
 use common_game::components::rocket::Rocket;
-use common_game::components::sunray::Sunray;
 use common_game::protocols::messages::{
     ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
 };
 use std::collections::HashSet;
-use std::thread;
 
 pub struct PlanetAI {
     has_explorer: bool,
@@ -353,12 +351,10 @@ impl planet::PlanetAI for PlanetAI {
     fn start(&mut self, state: &PlanetState) {
         self.started = true;
         self.has_explorer = false;
-        //to do
     }
 
     fn stop(&mut self, state: &PlanetState) {
         self.started = false;
         self.has_explorer = false;
-        //to do
     }
 }
