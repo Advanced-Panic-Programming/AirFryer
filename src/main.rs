@@ -372,7 +372,7 @@ mod tests {
     //  - basic resource
     //  - complex resource
     //  ...
-    ///Sends an asteroid to the planet and checks that the planet responde with a none
+    ///Sends an asteroid to the planet and checks that the planet responds with a none
     #[test]
     fn test_asteroid_with_no_rocket() {
         let planet = spawn_planet();
