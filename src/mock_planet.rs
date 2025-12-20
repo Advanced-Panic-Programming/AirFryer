@@ -1,34 +1,50 @@
+use crate::mock_planet::protocols::planet_explorer::ExplorerToPlanet;
+use common_game::components::planet::{DummyPlanetState, PlanetState};
+use common_game::components::resource::{Combinator, Generator};
+use common_game::components::sunray::Sunray;
 use common_game::{
     components::{self, planet, resource},
-    protocols::messages::{self, OrchestratorToPlanet, PlanetToExplorer},
+    protocols,
+    protocols::orchestrator_explorer::*,
+    protocols::planet_explorer::*,
 };
 
 pub(crate) struct MockAI {}
 
 #[allow(dead_code)]
 impl MockAI {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {}
     }
 }
 
 impl planet::PlanetAI for MockAI {
-    fn handle_orchestrator_msg(
+    fn handle_sunray(
         &mut self,
-        state: &mut planet::PlanetState,
+        state: &mut PlanetState,
+        generator: &Generator,
+        combinator: &Combinator,
+        sunray: Sunray,
+    ) {
+        todo!()
+    }
+
+    fn handle_asteroid(
+        &mut self,
+        _state: &mut planet::PlanetState,
         _generator: &resource::Generator,
         _combinator: &resource::Combinator,
-        msg: messages::OrchestratorToPlanet,
-    ) -> Option<messages::PlanetToOrchestrator> {
-        match msg {
-            OrchestratorToPlanet::Sunray(sunray) => {
-                let _charge = state.charge_cell(sunray);
-                Some(messages::PlanetToOrchestrator::SunrayAck {
-                    planet_id: state.id(),
-                })
-            }
-            _ => None,
-        }
+    ) -> Option<components::rocket::Rocket> {
+        todo!()
+    }
+
+    fn handle_internal_state_req(
+        &mut self,
+        state: &mut PlanetState,
+        generator: &Generator,
+        combinator: &Combinator,
+    ) -> DummyPlanetState {
+        todo!()
     }
 
     fn handle_explorer_msg(
@@ -36,12 +52,12 @@ impl planet::PlanetAI for MockAI {
         state: &mut planet::PlanetState,
         generator: &resource::Generator,
         _combinator: &resource::Combinator,
-        msg: messages::ExplorerToPlanet,
-    ) -> Option<messages::PlanetToExplorer> {
+        msg: ExplorerToPlanet,
+    ) -> Option<PlanetToExplorer> {
         match msg {
-            messages::ExplorerToPlanet::SupportedResourceRequest { explorer_id: _ } => todo!(),
-            messages::ExplorerToPlanet::SupportedCombinationRequest { explorer_id: _ } => todo!(),
-            messages::ExplorerToPlanet::GenerateResourceRequest {
+            ExplorerToPlanet::SupportedResourceRequest { explorer_id: _ } => todo!(),
+            ExplorerToPlanet::SupportedCombinationRequest { explorer_id: _ } => todo!(),
+            ExplorerToPlanet::GenerateResourceRequest {
                 explorer_id: _,
                 resource,
             } => match resource {
@@ -102,24 +118,11 @@ impl planet::PlanetAI for MockAI {
                     None => Some(PlanetToExplorer::GenerateResourceResponse { resource: None }),
                 },
             },
-            messages::ExplorerToPlanet::CombineResourceRequest {
+            ExplorerToPlanet::CombineResourceRequest {
                 explorer_id: _,
                 msg: _,
             } => todo!(),
-            messages::ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: _ } => todo!(),
+            ExplorerToPlanet::AvailableEnergyCellRequest { explorer_id: _ } => todo!(),
         }
     }
-
-    fn handle_asteroid(
-        &mut self,
-        _state: &mut planet::PlanetState,
-        _generator: &resource::Generator,
-        _combinator: &resource::Combinator,
-    ) -> Option<components::rocket::Rocket> {
-        todo!()
-    }
-
-    fn start(&mut self, _state: &planet::PlanetState) {}
-
-    fn stop(&mut self, _state: &planet::PlanetState) {}
 }
