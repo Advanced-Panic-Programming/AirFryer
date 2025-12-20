@@ -9,20 +9,19 @@ use common_game::{
             ComplexResourceRequest, ComplexResourceType, GenericResource,
         },
     },
-    protocols::messages::{
-        ExplorerToPlanet::{self},
-        OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
-    },
+    protocols::orchestrator_explorer::*,
+    protocols::orchestrator_planet::*,
+    protocols::planet_explorer::*,
 };
 
 use crossbeam_channel::{Receiver, RecvError, Sender, unbounded};
 use lazy_static::lazy_static;
 
+use common_game::protocols::orchestrator_planet::OrchestratorToPlanet;
 use std::{
     thread::{self, sleep},
     time::Duration,
 };
-
 // =========================================================================
 // GLOBAL STATIC, STRUCT & FUNCTIONS (to create planets) FOR TEST OPERATIONS
 // =========================================================================
@@ -164,7 +163,7 @@ fn register_explorer_with_planet(planet: &TestContext, explorer_id: u32) {
         .snd_orc_to_planet
         .send(OrchestratorToPlanet::IncomingExplorerRequest {
             explorer_id,
-            new_mpsc_sender: planet.snd_planet_to_exp.clone(),
+            new_sender: planet.snd_planet_to_exp.clone(),
         });
 
     // IncomingExplorerResponse message consumed from the queue
@@ -393,7 +392,7 @@ mod asteroid_tests {
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::IncomingExplorerRequest {
                 explorer_id: 0,
-                new_mpsc_sender: planet.snd_planet_to_exp,
+                new_sender: planet.snd_planet_to_exp,
             });
         let _ = planet
             .snd_exp_to_planet
@@ -428,7 +427,7 @@ mod asteroid_tests {
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::IncomingExplorerRequest {
                 explorer_id: 0,
-                new_mpsc_sender: planet.snd_planet_to_exp,
+                new_sender: planet.snd_planet_to_exp,
             });
         let _ = planet
             .snd_exp_to_planet
@@ -463,7 +462,7 @@ mod asteroid_tests {
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::IncomingExplorerRequest {
                 explorer_id: 0,
-                new_mpsc_sender: planet.snd_planet_to_exp,
+                new_sender: planet.snd_planet_to_exp,
             });
         let _ = planet
             .snd_orc_to_planet
@@ -722,11 +721,11 @@ mod explorer_lifecycle {
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::IncomingExplorerRequest {
                 explorer_id: 0,
-                new_mpsc_sender: planet.snd_planet_to_exp,
+                new_sender: planet.snd_planet_to_exp,
             });
         let res = planet.rcv_planet_to_orc.recv();
         match res {
-            Ok(PlanetToOrchestrator::IncomingExplorerResponse { planet_id, res }) => {
+            Ok(PlanetToOrchestrator::IncomingExplorerResponse { planet_id, res, .. }) => {
                 assert_eq!(planet_id, 0); // Verifica ID
                 assert!(res.is_ok(), "The result should be Ok");
                 println!("The explorer has been accepted!");
@@ -744,7 +743,7 @@ mod explorer_lifecycle {
             .send(OrchestratorToPlanet::OutgoingExplorerRequest { explorer_id: 0 });
         let res = planet.rcv_planet_to_orc.recv();
         match res {
-            Ok(PlanetToOrchestrator::OutgoingExplorerResponse { planet_id, res }) => {
+            Ok(PlanetToOrchestrator::OutgoingExplorerResponse { planet_id, res, .. }) => {
                 assert_eq!(planet_id, 0); // Verifica ID
                 assert!(res.is_ok(), "The result should be Ok");
                 println!("The explorer has been ejected!");
@@ -757,6 +756,7 @@ mod explorer_lifecycle {
 
 mod planet_ai_state {
     use super::*;
+    use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
 
     #[test]
     fn planet_internal_state_request() {

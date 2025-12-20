@@ -1,17 +1,16 @@
-use common_game::{
-    components::{
-        planet::{self, PlanetState},
-        resource::{
-            BasicResource, BasicResourceType, Combinator, ComplexResource, ComplexResourceRequest,
-            ComplexResourceType, Generator, GenericResource,
-        },
-        rocket::Rocket,
+use common_game::components::{
+    planet::{self, PlanetState},
+    resource::{
+        BasicResource, BasicResourceType, Combinator, ComplexResource, ComplexResourceRequest,
+        ComplexResourceType, Generator, GenericResource,
     },
-    protocols::messages::{
-        ExplorerToPlanet, OrchestratorToPlanet, PlanetToExplorer, PlanetToOrchestrator,
-    },
+    rocket::Rocket,
 };
 
+use common_game::components::planet::DummyPlanetState;
+use common_game::components::sunray::Sunray;
+use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
+use common_game::utils::ID;
 use std::collections::HashSet;
 
 #[allow(dead_code)]
@@ -33,108 +32,53 @@ impl PlanetAI {
 }
 
 impl planet::PlanetAI for PlanetAI {
-    fn handle_orchestrator_msg(
+    fn handle_sunray(
         &mut self,
         state: &mut PlanetState,
         generator: &Generator,
         combinator: &Combinator,
-        msg: OrchestratorToPlanet,
-    ) -> Option<PlanetToOrchestrator> {
-        //If the planet is stopped, I check if the message I receive is the start message, else I return None
-        match msg {
-            OrchestratorToPlanet::StartPlanetAI => {
-                self.start(state);
-                #[allow(clippy::unnecessary_operation)]
-                PlanetToOrchestrator::StartPlanetAIResult {
-                    // FIXME: this `StartPlanetAIResult` is
-                    // never returned! Written like this
-                    // it's useless. We need to return the
-                    // response
-                    planet_id: state.id(),
-                };
-            }
-            OrchestratorToPlanet::KillPlanet => {
-                #[allow(clippy::unnecessary_operation)]
-                PlanetToOrchestrator::KillPlanetResult {
-                    // FIXME: this `KillPlanetResult` is
-                    // never returned! Written like this
-                    // it's useless. We need to return the
-                    // response
-                    planet_id: state.id(),
-                };
-            }
-            _ => {}
-        }
-        if self.started {
-            match msg {
-                OrchestratorToPlanet::Sunray(sunray) => {
-                    // First scenario: empty energy cell -> charge it
-                    if !state.cell(0).is_charged() {
-                        state.cell_mut(0).charge(sunray);
-
-                        // We don't build the rocket here. We wait for a possible explorer in order to let him use the charge for generating a resource
-                    } else {
-                        // Second scenario: energy cell already charged -> discharge it by creating a rocket (if possible) and recharge it.
-                        if !state.has_rocket() {
-                            let _ = state.build_rocket(0);
-                            state.cell_mut(0).charge(sunray);
-                        }
-                    }
-                    // Send the SunrayAck
-                    Some(PlanetToOrchestrator::SunrayAck {
-                        planet_id: state.id(),
-                    })
-                }
-                OrchestratorToPlanet::Asteroid(_) => {
-                    // Set asteroid flag and prepare one-cycle warning for explorer
-                    self.pending_warning = true;
-
-                    // Try to build the rocket
-                    let rocket = self.handle_asteroid(state, generator, combinator);
-                    Some(PlanetToOrchestrator::AsteroidAck {
-                        planet_id: state.id(),
-                        rocket,
-                    })
-                }
-                OrchestratorToPlanet::StartPlanetAI => {
-                    self.start(state);
-                    Some(PlanetToOrchestrator::StartPlanetAIResult {
-                        planet_id: state.id(),
-                    })
-                }
-                OrchestratorToPlanet::StopPlanetAI => {
-                    self.stop(state);
-                    Some(PlanetToOrchestrator::StopPlanetAIResult {
-                        planet_id: state.id(),
-                    })
-                }
-                OrchestratorToPlanet::InternalStateRequest => {
-                    Some(PlanetToOrchestrator::InternalStateResponse {
-                        planet_id: state.id(),
-                        planet_state: state.to_dummy(),
-                    }) //Michele
-                }
-                OrchestratorToPlanet::IncomingExplorerRequest { .. } => {
-                    self.has_explorer = true;
-                    Some(PlanetToOrchestrator::IncomingExplorerResponse {
-                        planet_id: state.id(),
-                        res: Ok(()),
-                    }) //Michele
-                }
-                OrchestratorToPlanet::OutgoingExplorerRequest { .. } => {
-                    self.has_explorer = false;
-                    Some(PlanetToOrchestrator::OutgoingExplorerResponse {
-                        planet_id: state.id(),
-                        res: Ok(()),
-                    }) //?
-                }
-                OrchestratorToPlanet::KillPlanet => Some(PlanetToOrchestrator::KillPlanetResult {
-                    planet_id: state.id(),
-                }),
-            }
+        sunray: Sunray,
+    ) {
+        if !state.cell(0).is_charged() {
+            state.charge_cell(sunray);
         } else {
+            if !state.has_rocket() {
+                state.build_rocket(0);
+                state.charge_cell(sunray);
+            }
+        }
+    }
+
+    fn handle_asteroid(
+        &mut self,
+        state: &mut PlanetState,
+        _generator: &Generator,
+        _combinator: &Combinator,
+    ) -> Option<Rocket> {
+        if state.has_rocket() {
+            // reset warning flags after using the rocket
+            self.pending_warning = false;
+            state.take_rocket()
+        } else {
+            // Try to build a rocket
+            if state.build_rocket(0).is_ok() {
+                self.pending_warning = false;
+                return state.take_rocket();
+            }
+
+            // Couldn't build the rocket -> warn the explorer
+            self.pending_warning = true;
             None
         }
+    }
+
+    fn handle_internal_state_req(
+        &mut self,
+        state: &mut PlanetState,
+        generator: &Generator,
+        combinator: &Combinator,
+    ) -> DummyPlanetState {
+        state.to_dummy()
     }
 
     fn handle_explorer_msg(
@@ -309,35 +253,32 @@ impl planet::PlanetAI for PlanetAI {
         }
     }
 
-    fn handle_asteroid(
+    fn on_explorer_arrival(
         &mut self,
         state: &mut PlanetState,
-        _generator: &Generator,
-        _combinator: &Combinator,
-    ) -> Option<Rocket> {
-        if state.has_rocket() {
-            // reset warning flags after using the rocket
-            self.pending_warning = false;
-            state.take_rocket()
-        } else {
-            // Try to build a rocket
-            if state.build_rocket(0).is_ok() {
-                self.pending_warning = false;
-                return state.take_rocket();
-            }
-
-            // Couldn't build the rocket -> warn the explorer
-            self.pending_warning = true;
-            None
-        }
+        generator: &Generator,
+        combinator: &Combinator,
+        explorer_id: ID,
+    ) {
+        self.has_explorer = true;
     }
 
-    fn start(&mut self, _state: &PlanetState) {
+    fn on_explorer_departure(
+        &mut self,
+        state: &mut PlanetState,
+        generator: &Generator,
+        combinator: &Combinator,
+        explorer_id: ID,
+    ) {
+        self.has_explorer = false;
+    }
+
+    fn on_start(&mut self, state: &PlanetState, generator: &Generator, combinator: &Combinator) {
         self.started = true;
         self.has_explorer = false;
     }
 
-    fn stop(&mut self, _state: &PlanetState) {
+    fn on_stop(&mut self, state: &PlanetState, generator: &Generator, combinator: &Combinator) {
         self.started = false;
         self.has_explorer = false;
     }
