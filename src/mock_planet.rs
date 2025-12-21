@@ -20,12 +20,12 @@ impl MockAI {
 impl planet::PlanetAI for MockAI {
     fn handle_sunray(
         &mut self,
-        _state: &mut PlanetState,
+        state: &mut PlanetState,
         _generator: &Generator,
         _combinator: &Combinator,
-        _sunray: Sunray,
+        sunray: Sunray,
     ) {
-        todo!()
+        state.charge_cell(sunray);
     }
 
     fn handle_asteroid(
