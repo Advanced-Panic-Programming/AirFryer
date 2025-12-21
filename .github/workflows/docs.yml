@@ -26,7 +26,7 @@ jobs:
 
       - name: Create redirect index.html
         run: |
-          echo '<meta http-equiv="refresh" content="0; url=AirFryer/index.html">' > target/doc/index.html
+          echo '<meta http-equiv="refresh" content="0; url=air_fryer/index.html">' > target/doc/index.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

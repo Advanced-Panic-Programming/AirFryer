@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "AirFryer"
+name = "air_fryer"
 version = "0.1.0"
 dependencies = [
  "common-game",

@@ -1,5 +1,5 @@
 [package]
-name = "AirFryer"
+name = "air_fryer"
 version = "0.1.0"
 edition = "2024"
 
