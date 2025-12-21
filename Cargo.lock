@@ -3,6 +3,16 @@
 version = 4
 
 [[package]]
+name = "AirFryer"
+version = "0.1.0"
+dependencies = [
+ "common-game",
+ "crossbeam-channel",
+ "lazy_static",
+ "log",
+]
+
+[[package]]
 name = "common-game"
 version = "2.0.0"
 source = "git+https://github.com/unitn-ap-2025/common.git?branch=main#cc1f15f327e1db5acf908026c458ba83949d0907"
@@ -66,16 +76,6 @@ name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
-
-[[package]]
-name = "planet"
-version = "0.1.0"
-dependencies = [
- "common-game",
- "crossbeam-channel",
- "lazy_static",
- "log",
-]
 
 [[package]]
 name = "proc-macro2"
