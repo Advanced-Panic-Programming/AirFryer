@@ -9,7 +9,6 @@ use common_game::{
             ComplexResourceRequest, ComplexResourceType, GenericResource,
         },
     },
-    protocols::orchestrator_explorer::*,
     protocols::orchestrator_planet::*,
     protocols::planet_explorer::*,
 };

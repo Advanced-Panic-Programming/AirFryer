@@ -5,7 +5,6 @@ use common_game::components::sunray::Sunray;
 use common_game::{
     components::{self, planet, resource},
     protocols,
-    protocols::orchestrator_explorer::*,
     protocols::planet_explorer::*,
 };
 
@@ -21,10 +20,10 @@ impl MockAI {
 impl planet::PlanetAI for MockAI {
     fn handle_sunray(
         &mut self,
-        state: &mut PlanetState,
-        generator: &Generator,
-        combinator: &Combinator,
-        sunray: Sunray,
+        _state: &mut PlanetState,
+        _generator: &Generator,
+        _combinator: &Combinator,
+        _sunray: Sunray,
     ) {
         todo!()
     }
@@ -40,9 +39,9 @@ impl planet::PlanetAI for MockAI {
 
     fn handle_internal_state_req(
         &mut self,
-        state: &mut PlanetState,
-        generator: &Generator,
-        combinator: &Combinator,
+        _state: &mut PlanetState,
+        _generator: &Generator,
+        _combinator: &Combinator,
     ) -> DummyPlanetState {
         todo!()
     }

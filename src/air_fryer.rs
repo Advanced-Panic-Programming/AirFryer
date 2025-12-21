@@ -31,21 +31,25 @@ impl PlanetAI {
     }
 }
 
+impl Default for PlanetAI {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl planet::PlanetAI for PlanetAI {
     fn handle_sunray(
         &mut self,
         state: &mut PlanetState,
-        generator: &Generator,
-        combinator: &Combinator,
+        _generator: &Generator,
+        _combinator: &Combinator,
         sunray: Sunray,
     ) {
         if !state.cell(0).is_charged() {
             state.charge_cell(sunray);
-        } else {
-            if !state.has_rocket() {
-                state.build_rocket(0);
-                state.charge_cell(sunray);
-            }
+        } else if !state.has_rocket() {
+            let _ = state.build_rocket(0);
+            state.charge_cell(sunray);
         }
     }
 
@@ -75,8 +79,8 @@ impl planet::PlanetAI for PlanetAI {
     fn handle_internal_state_req(
         &mut self,
         state: &mut PlanetState,
-        generator: &Generator,
-        combinator: &Combinator,
+        _generator: &Generator,
+        _combinator: &Combinator,
     ) -> DummyPlanetState {
         state.to_dummy()
     }
@@ -255,30 +259,30 @@ impl planet::PlanetAI for PlanetAI {
 
     fn on_explorer_arrival(
         &mut self,
-        state: &mut PlanetState,
-        generator: &Generator,
-        combinator: &Combinator,
-        explorer_id: ID,
+        _state: &mut PlanetState,
+        _generator: &Generator,
+        _combinator: &Combinator,
+        _explorer_id: ID,
     ) {
         self.has_explorer = true;
     }
 
     fn on_explorer_departure(
         &mut self,
-        state: &mut PlanetState,
-        generator: &Generator,
-        combinator: &Combinator,
-        explorer_id: ID,
+        _state: &mut PlanetState,
+        _generator: &Generator,
+        _combinator: &Combinator,
+        _explorer_id: ID,
     ) {
         self.has_explorer = false;
     }
 
-    fn on_start(&mut self, state: &PlanetState, generator: &Generator, combinator: &Combinator) {
+    fn on_start(&mut self, _state: &PlanetState, _generator: &Generator, _combinator: &Combinator) {
         self.started = true;
         self.has_explorer = false;
     }
 
-    fn on_stop(&mut self, state: &PlanetState, generator: &Generator, combinator: &Combinator) {
+    fn on_stop(&mut self, _state: &PlanetState, _generator: &Generator, _combinator: &Combinator) {
         self.started = false;
         self.has_explorer = false;
     }
