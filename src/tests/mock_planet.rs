@@ -1,11 +1,11 @@
-use crate::mock_planet::protocols::planet_explorer::ExplorerToPlanet;
-use common_game::components::planet::{DummyPlanetState, PlanetState};
-use common_game::components::resource::{Combinator, Generator};
-use common_game::components::sunray::Sunray;
 use common_game::{
-    components::{self, planet, resource},
-    protocols,
-    protocols::planet_explorer::*,
+    components::{
+        self,
+        planet::{self, DummyPlanetState, PlanetState},
+        resource::{self, Combinator, Generator},
+        sunray::Sunray,
+    },
+    protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer},
 };
 
 pub(crate) struct MockAI {}

@@ -1,54 +1,77 @@
-use crate::air_fryer::PlanetAI;
-use common_game::components::planet;
-use common_game::components::planet::PlanetType;
-use common_game::components::resource::{BasicResourceType, ComplexResourceType};
-use common_game::protocols::orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator};
-use common_game::protocols::planet_explorer::ExplorerToPlanet;
-use common_game::utils::ID;
+use common_game::{
+    components::{
+        planet as common_planet,
+        resource::{BasicResourceType, ComplexResourceType},
+    },
+    protocols::{
+        orchestrator_planet::{OrchestratorToPlanet, PlanetToOrchestrator},
+        planet_explorer::ExplorerToPlanet,
+    },
+    utils::ID,
+};
+
 use crossbeam_channel::{Receiver, Sender};
 
-mod air_fryer;
-mod mock_planet;
+pub(crate) mod planet;
+pub use crate::planet::PlanetAI;
+
+#[cfg(test)]
+mod tests;
 
 /// Creates a new planet instance with predefined resource capabilities.
-/// 
+///
 /// This function creates a Type-C planet that can generate Carbon as a basic resource
-/// and combine various complex resources including Water, Life, Dolphin, Robot, 
+/// and combine various complex resources including Water, Life, Dolphin, Robot,
 /// Diamond, and AIPartner.
-/// 
+///
 /// # Arguments
-/// 
-/// * `id` - Unique identifier for the planet
-/// * `planet_ai` - AI implementation that controls the planet's behavior
-/// * `orchestrator_channels` - Communication channels with the orchestrator:
-///   - Receiver for orchestrator messages (OrchestratorToPlanet)
-///   - Sender for planet responses (PlanetToOrchestrator)
-/// * `explorers_receiver` - Receiver for messages from explorers (ExplorerToPlanet)
-/// 
+///
+/// * `id` - Unique identifier for the planet.
+/// * `planet_ai` - Implementation of the Planet AI logic.
+/// * `orchestrator_channels` - A tuple of (Receiver for Orchestrator, Sender to Orchestrator).
+/// * `explorers_receiver` - Channel to receive incoming requests from explorers.
+///
 /// # Returns
-/// 
-/// * `Ok(Planet)` - Successfully created planet instance
-/// * `Err(String)` - Error message if planet creation fails
-/// 
+///
+/// * `Ok(Planet)` - The initialized planet object.
+/// * `Err(String)` - An error if the configuration is invalid.
+///
 /// # Example
-/// 
-/// ```ignore
-/// let planet = create_planet(
-///     42,
-///     PlanetAI::new(),
-///     (orc_receiver, planet_sender),
-///     explorer_receiver
-/// )?;
+///
+/// ```rust
+/// use air_fryer::{create_planet, PlanetAI};
+/// use crossbeam_channel::unbounded;
+///
+/// // Orchestrator <=> Planet channels
+/// let (tx_to_planet, rx_from_orc) = unbounded();
+/// let (tx_to_orc, rx_from_planet) = unbounded();
+///
+/// // Setup Explorer => Planet channel
+/// let (tx_from_explorer, rx_at_planet) = unbounded();
+///
+/// // Instantiate and handle the Result
+/// let planet_id = 42;
+/// let ai = PlanetAI::new();
+///
+/// match create_planet(
+///     planet_id,
+///     ai,
+///     (rx_from_orc, tx_to_orc),
+///     rx_at_planet,
+/// ) {
+///     Ok(_planet) => println!("Planet {} is initialized and ready!", planet_id),
+///     Err(e) => panic!("Initialization failed: {}", e),
+/// }
 /// ```
 pub fn create_planet(
     id: ID,
-    planet_ai: PlanetAI,
+    planet_ai: planet::PlanetAI,
     orchestrator_channels: (Receiver<OrchestratorToPlanet>, Sender<PlanetToOrchestrator>),
     explorers_receiver: Receiver<ExplorerToPlanet>,
-) -> Result<planet::Planet, String> {
-    planet::Planet::new(
+) -> Result<common_planet::Planet, String> {
+    common_planet::Planet::new(
         id,
-        PlanetType::C,
+        common_planet::PlanetType::C,
         Box::new(planet_ai),
         vec![BasicResourceType::Carbon],
         vec![

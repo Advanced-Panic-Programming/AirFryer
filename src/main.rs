@@ -1,36 +1,16 @@
-mod air_fryer;
-mod mock_planet;
+use air_fryer::{create_planet, PlanetAI};
+use crossbeam_channel::unbounded;
 
 fn main() {
-    //This main represent the initial setup for our type of planet, and it's crafting and generating rules
-    /*
-    //New AI
-    let ia = air_frier::PlanetAI::new();
+    // Create communication channels
+    let (_orc_sender, orc_receiver) = unbounded();
+    let (planet_sender, _planet_receiver) = unbounded();
+    let (_explorer_sender, explorer_receiver) = unbounded();
 
-    let mut gene: Vec<BasicResourceType> = Vec::new();
-    gene.push(BasicResourceType::Carbon);
-
-    let compl: Vec<ComplexResourceType> = vec![
-        ComplexResourceType::Water,
-        ComplexResourceType::Life,
-        ComplexResourceType::Dolphin,
-        ComplexResourceType::Robot,
-        ComplexResourceType::AIPartner,
-        ComplexResourceType::Diamond,
-    ];
-
-    let (sdr_expl_to_planet, rcv_expl_to_planet) = unbounded::<ExplorerToPlanet>();
-    let (sdr_planet_to_expl, rcv_planet_to_expl) = unbounded::<PlanetToExplorer>();
-    let (sdr_planet_to_orc, rcv_planet_to_orc) = unbounded::<PlanetToOrchestrator>();
-    let (sdr_orc_to_planet, rcv_orc_to_planet) = unbounded::<OrchestratorToPlanet>();
-
-    //
-    // let planet = Planet::new(0, PlanetType::C, Box::new(ia), gene, rcv_expl_to_planet);    if planet.is_ok() {
-    //    planet.unwrap().run();
-    //}
-    //Planet::new(0, PlanetType::C, (), vec![], vec![], ((), ()), ((), ()));
-     */
+    let _planet = create_planet(
+        42,
+       PlanetAI::new(), 
+        (orc_receiver, planet_sender),
+        explorer_receiver,
+    );
 }
-
-#[cfg(test)]
-mod tests;

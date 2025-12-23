@@ -1,9 +1,7 @@
-use crate::{air_fryer, mock_planet};
-
 use common_game::{
     components::{
         forge::Forge,
-        planet::{Planet, PlanetType},
+        planet as common_planet,
         resource::{
             self, BasicResource, BasicResourceType, Carbon, ComplexResource,
             ComplexResourceRequest, ComplexResourceType, GenericResource,
@@ -21,6 +19,9 @@ use std::{
     thread::{self, sleep},
     time::Duration,
 };
+
+use super::mock_planet;
+use crate::planet;
 // =========================================================================
 // GLOBAL STATIC, STRUCT & FUNCTIONS (to create planets) FOR TEST OPERATIONS
 // =========================================================================
@@ -40,7 +41,7 @@ pub struct TestContext {
 }
 
 fn spawn_planet() -> TestContext {
-    let ia = air_fryer::PlanetAI::new();
+    let ia = planet::PlanetAI::new();
 
     let gene: Vec<BasicResourceType> = vec![BasicResourceType::Carbon];
 
@@ -58,9 +59,9 @@ fn spawn_planet() -> TestContext {
     let (sdr_planet_to_orc, rcv_planet_to_orc) = unbounded::<PlanetToOrchestrator>();
     let (sdr_orc_to_planet, rcv_orc_to_planet) = unbounded::<OrchestratorToPlanet>();
 
-    let planet = Planet::new(
+    let planet = common_planet::Planet::new(
         0,
-        PlanetType::C,
+        common_planet::PlanetType::C,
         Box::new(ia),
         gene,
         compl,
@@ -107,9 +108,9 @@ fn spawn_resource_planet() -> TestContext {
     let (sdr_planet_to_orc, rcv_planet_to_orc) = unbounded::<PlanetToOrchestrator>();
     let (sdr_orc_to_planet, rcv_orc_to_planet) = unbounded::<OrchestratorToPlanet>();
 
-    let new_planet = Planet::new(
+    let new_planet = common_planet::Planet::new(
         1,
-        PlanetType::B,
+        common_planet::PlanetType::B,
         Box::new(ia),
         gen_rules,
         comb_rules,
