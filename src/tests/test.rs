@@ -606,6 +606,27 @@ mod secret_warning {
         // Explorer-side "decoder"
         let asteroid_detected = res != 6;
         assert!(!asteroid_detected, "Explorer was warned uselessly");
+
+        // Sunray sent -> Energy cell recharged
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(GENERATOR.generate_sunray()));
+        // Send asteroid -> Build rocket -> Planet can defend itself -> no warning sent
+        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(GENERATOR.generate_asteroid()));
+
+        let _ = planet
+            .snd_exp_to_planet
+            .send(ExplorerToPlanet::SupportedCombinationRequest { explorer_id: 0 });
+
+        let msg_res = planet.rcv_planet_to_exp.recv();
+
+        let res = match_supported_combination_request_response(msg_res);
+        // Full set size must be exactly 6
+        assert_eq!(res, 6);
+
+        // Explorer-side "decoder"
+        let asteroid_detected = res != 6;
+        assert!(!asteroid_detected, "Explorer was warned uselessly");
+
+        println!("No need to warn the explorer");
     }
 
     //Debug used function
@@ -687,11 +708,6 @@ mod secret_warning {
             .snd_orc_to_planet
             .send(OrchestratorToPlanet::KillPlanet);
 
-        //Wil be implemented: Explorer asks to change planet
-        // ...
-
-        //Will be implemented: Orchestrator manages the explorer request before receiving the KillPlanetResult
-        // ...
         println!("Explorer escaped in time!");
 
         // Orchestrator receives the KillPlanetResult
