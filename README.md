@@ -1,160 +1,91 @@
-# air_fryer.rs
+# AirFryer.rs
 
-Planet implementation of the [common_crate](https://github.com/unitn-ap-2025/common), providing the core logic for managing a planet’s resources, energy, and interactions with explorers.
+A Rust implementation of a planet agent for the [common_game](https://github.com/unitn-ap-2025/common) framework. This crate provides the core logic for managing a planet's resources, energy systems, and interactions with explorers in a distributed game environment.
+
+Documentation available: [docs](https://advanced-panic-programming.github.io/AirFryer/)
 
 ## Overview
 
 <img align="right" width="230" src="https://github.com/user-attachments/assets/e7af14f8-9400-4f85-b55c-e7af98d949a9">
 
-**Planet** is an autonomous agent that runs on a separate thread and manages:
-- **Resource Generation**: Creates basic resources (Carbon)
-- **Resource Combination**: Combines basic resources into complex resources
-- **Energy Management**: Handles energy cells and rocket construction
-- **Explorer Interactions**: Responds to explorer requests for resources
-- **Asteroid Defense**: Detects and defends against incoming asteroids
+**AirFryer** is a Type-C planet that operates as an autonomous agent running in its own thread. It manages resource generation, energy management, and explorer communications through a message-driven architecture.
 
-## Architecture
+### Key Capabilities
 
-### Message-Driven Design
+- **Resource Generation**: Creates Carbon as the primary basic resource
+- **Complex Resource Synthesis**: Combines basic resources into 6 different complex resources
+- **Energy Management**: Handles sunray charging and energy cell operations
+- **Explorer Protocol**: Responds to resource requests and combination queries
+- **Asteroid Defense**: Early warning system and rocket-based defense mechanism
 
-The system uses **crossbeam_channel** for inter-thread communication between:
-- **Orchestrator**: Central game controller
-- **Explorers**: Players requesting resources
-- **Planet**: AI handler managing planet state
+## Features
 
-Messages flow bidirectionally:
-```
-  Orchestrator  ⟷         Planet        ⟷       Explorers
-   (commands)        (queries & updates)     (requests & responses)
-```
+### Energy Management System
 
-## Core Features
+The planet manages energy through a cell-based system:
 
-### 1. **Energy Management**
+1. **Sunray Reception**: 
+   - First sunray charges an empty energy cell
+   - Subsequent sunrays build rockets (if needed) or charge additional cells
 
-The planet manages energy cells to power all operations:
+2. **Energy Consumption**:
+   - Each resource generation consumes one charged energy cell
+   - Each resource combination consumes one charged energy cell
+   - Rocket construction requires energy from cells
 
-- **Sunray Charging**: Receives sunrays from the orchestrator and charges energy cells
-  - First sunray: Charges cell if empty
-  - Subsequent sunrays: Build rocket (if needed) or charge new cells
-  
-- **Cell-Based Operations**: Each resource generation/combination consumes one charged energy cell
+### Resource Operations
 
-### 2. **Resource Generation**
+#### Basic Resource Generation
 
-Basic resource generation (currently implements **Carbon**):
+The planet generates **Carbon** as its basic resource:
 
 ```rust
-ExplorerToPlanet::GenerateResourceRequest { resource: Carbon }
+// Explorer requests Carbon
+ExplorerToPlanet::GenerateResourceRequest { resource: BasicResourceType::Carbon }
   ↓
-PlanetAI checks:
-  - Is it Carbon? Ok
-  - Is cell charged? Ok
+// Planet validates request and energy availability
+PlanetAI.handle_explorer_msg()
   ↓
-Generator creates Carbon
+// Generator creates Carbon using energy cell
+Generator.make_carbon(energy_cell)
   ↓
+// Response sent back to explorer
 PlanetToExplorer::GenerateResourceResponse { resource: Some(Carbon) }
 ```
 
-### 3. **Resource Combination**
+#### Complex Resource Combination
 
-Combines two resources into one complex resource using the **Combinator**:
+The planet supports 6 complex resource combinations:
 
-**Supported Combinations:**
-| Combination | Input 1 | Input 2 | Output |
-|---|---|---|---|
-| Water | Hydrogen | Oxygen | Water |
-| Diamond | Carbon | Carbon | Diamond |
-| Life | Water | Carbon | Life |
-| Robot | Silicon | Life | Robot |
-| Dolphin | Water | Life | Dolphin |
-| AIPartner | Robot | Diamond | AIPartner |
+| Complex Resource | Required Inputs | Energy Cost |
+|------------------|-----------------|-------------|
+| **Water** | Hydrogen + Oxygen | 1 cell |
+| **Diamond** | Carbon + Carbon | 1 cell |
+| **Life** | Water + Carbon | 1 cell |
+| **Robot** | Silicon + Life | 1 cell |
+| **Dolphin** | Water + Life | 1 cell |
+| **AIPartner** | Robot + Diamond | 1 cell |
 
-Each combination:
-1. Checks if both resources are available
-2. Consumes one charged energy cell
-3. Returns the combined resource or an error (with both input resources)
+### Asteroid Defense System
 
-### 4. **Asteroid Defense System**
+<!-- TODO: finish this section --!>
 
-Early warning system to alert explorers of incoming asteroids:
+## API Reference
 
-- **Asteroid Handling**: 
-  - If rocket exists &rArr; Send rocket and reset warning
-  - If no rocket &rArr; Build rocket from energy cell (if possible)
-  - If can't build &rArr; Flag pending warning
-
-- **Explorer Notification**: Uses a "secret channel" in the `SupportedCombinationResponse`
-  - Normal state: All 6 complex resources supported
-  - Asteroid incoming: Removes `AIPartner` from list (encoded as bit = 1)
-  - Explorer detects missing resource and knows asteroid is coming
-
-### 5. **Explorer Management**
-
-Tracks explorer presence and responds to queries:
-
-- **Resource Queries**: `SupportedResourceRequest` &rArr; Returns `{Carbon}`
-- **Combination Queries**: `SupportedCombinationRequest` &rArr; Returns supported combinations
-- **Energy Status**: `AvailableEnergyCellRequest` &rArr; Returns charged cell count
-- **Explorer Tracking**: Manages incoming/outgoing explorer requests
-
-## Implementation Details
-
-### PlanetAI State Machine
-
-```
-┌─────────────────┐
-│   Stopped       │
-│  (started=false)│
-└────────┬────────┘
-         │ StartPlanetAI
-         ↓
-┌─────────────────┐
-│   Running       │
-│  (started=true) │ ← Processes all messages
-└────────┬────────┘
-         │ StopPlanetAI
-         ↓
-┌─────────────────┐
-│   Stopped       │
-└─────────────────┘
-```
-
-### Message Handlers
-
-**`handle_orchestrator_msg`**: 
-- `StartPlanetAI` / `StopPlanetAI`: Control planet lifecycle
-- `Sunray`: Charge energy cells or build rocket
-- `Asteroid`: Trigger defense mechanism
-- `IncomingExplorerRequest` / `OutgoingExplorerRequest`: Track explorers
-- `InternalStateRequest`: Return planet snapshot
-- `KillPlanet`: Terminate gracefully
-
-**`handle_explorer_msg`**:
-- `GenerateResourceRequest`: Create basic resources
-- `CombineResourceRequest`: Combine two resources
-- `SupportedResourceRequest`: Report capabilities
-- `SupportedCombinationRequest`: List possible combinations (with asteroid warning)
-- `AvailableEnergyCellRequest`: Report energy status
+For APIs, see: [docs](https://advanced-panic-programming.github.io/AirFryer/)
 
 ## Testing
 
-The project includes comprehensive test suites:
+The project includes comprehensive test coverage:
 
-- **Unit Tests**: Individual feature tests
-- **Integration Tests**: Multi-planet scenarios
-- **Combination Tests**: All 6 resource combinations in a single test
+<!-- TODO: finish this section --!>
 
-## Dependencies
+### Test Categories
 
-- **common_game**: Core game framework with components and protocols
-- **crossbeam_channel**: Efficient multi-producer, multi-consumer channels
-- **log**: Logging framework
+- **Unit Tests**: Individual component testing
+
+<!-- TODO: finish this section --!>
 
 ## Future Enhancements
-
-Planned improvements for upcoming releases:
-
--  Add logging for all state transitions
 
 For a complete list of proposed features and known issues, see our [GitHub Issues](https://github.com/Advanced-Panic-Programming/AirFryer/issues).
