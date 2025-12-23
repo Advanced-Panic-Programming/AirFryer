@@ -39,7 +39,7 @@ The planet manages energy through a cell-based system:
 
 The planet generates **Carbon** as its basic resource:
 
-```rust
+```ignore
 // Explorer requests Carbon
 ExplorerToPlanet::GenerateResourceRequest { resource: BasicResourceType::Carbon }
   ↓
@@ -68,7 +68,7 @@ The planet supports 6 complex resource combinations:
 
 ### Asteroid Defense System
 
-<!-- TODO: finish this section --!>
+<!-- TODO: finish this section -->
 
 ## API Reference
 
@@ -78,13 +78,13 @@ For APIs, see: [docs](https://advanced-panic-programming.github.io/AirFryer/)
 
 The project includes comprehensive test coverage:
 
-<!-- TODO: finish this section --!>
+<!-- TODO: finish this section -->
 
 ### Test Categories
 
 - **Unit Tests**: Individual component testing
 
-<!-- TODO: finish this section --!>
+<!-- TODO: finish this section -->
 
 ## Future Enhancements
 

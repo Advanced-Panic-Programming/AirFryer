@@ -1,4 +1,4 @@
-use air_fryer::{create_planet, PlanetAI};
+use air_fryer::{PlanetAI, create_planet};
 use crossbeam_channel::unbounded;
 
 fn main() {
@@ -9,7 +9,7 @@ fn main() {
 
     let _planet = create_planet(
         42,
-       PlanetAI::new(), 
+        PlanetAI::new(),
         (orc_receiver, planet_sender),
         explorer_receiver,
     );

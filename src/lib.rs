@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use common_game::{
     components::{
         planet as common_planet,
