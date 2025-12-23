@@ -608,9 +608,15 @@ mod secret_warning {
         assert!(!asteroid_detected, "Explorer was warned uselessly");
 
         // Sunray sent -> Energy cell recharged
-        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Sunray(GENERATOR.generate_sunray()));
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::Sunray(GENERATOR.generate_sunray()));
         // Send asteroid -> Build rocket -> Planet can defend itself -> no warning sent
-        let _ = planet.snd_orc_to_planet.send(OrchestratorToPlanet::Asteroid(GENERATOR.generate_asteroid()));
+        let _ = planet
+            .snd_orc_to_planet
+            .send(OrchestratorToPlanet::Asteroid(
+                GENERATOR.generate_asteroid(),
+            ));
 
         let _ = planet
             .snd_exp_to_planet
