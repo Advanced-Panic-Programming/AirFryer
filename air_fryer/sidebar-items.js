@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["create_planet"]};
+window.SIDEBAR_ITEMS = {"fn":["create_planet"],"struct":["PlanetAI"]};

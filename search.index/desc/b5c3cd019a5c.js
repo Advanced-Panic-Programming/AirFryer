@@ -1,0 +1,1 @@
+rd_("AoReturns the argument unchanged.BaCalls <code>U::from(self)</code>.CjCreates a new planet instance with predefined resource \xe2\x80\xa6")
