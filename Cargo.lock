@@ -14,8 +14,9 @@ dependencies = [
 
 [[package]]
 name = "common-game"
-version = "2.0.0"
-source = "git+https://github.com/unitn-ap-2025/common.git?branch=main#cc1f15f327e1db5acf908026c458ba83949d0907"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "288def5b45036a2fe3d7ba745c0f0e40b18b5e96164cc139fa220485509e701e"
 dependencies = [
  "crossbeam-channel",
  "enum-as-inner",
