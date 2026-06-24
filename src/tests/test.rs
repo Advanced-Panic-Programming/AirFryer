@@ -153,9 +153,6 @@ fn spawn_dual_planets() -> (TestContext, TestContext) {
 // ===========================================
 // HELPER FUNCTIONS FOR COMMON TEST OPERATIONS
 // ===========================================
-//
-// TODO: it would be ideal to use the common test operation inside
-// all the test methods
 
 /// Registers an explorer with a planet so it can send/receive messages
 fn register_explorer_with_planet(planet: &TestContext, explorer_id: u32) {

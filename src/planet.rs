@@ -11,21 +11,16 @@ use common_game::components::planet::DummyPlanetState;
 use common_game::components::sunray::Sunray;
 use common_game::protocols::planet_explorer::{ExplorerToPlanet, PlanetToExplorer};
 use common_game::utils::ID;
+use log::{info, warn};
 use std::collections::HashSet;
 
-#[allow(dead_code)]
 pub struct PlanetAI {
-    has_explorer: bool,
-    started: bool,
     pending_warning: bool, // To warn the explorer
 }
 
-#[allow(dead_code)]
 impl PlanetAI {
     pub fn new() -> PlanetAI {
         PlanetAI {
-            has_explorer: false,
-            started: false,
             pending_warning: false,
         }
     }
@@ -47,9 +42,13 @@ impl planet::PlanetAI for PlanetAI {
     ) {
         if !state.cell(0).is_charged() {
             state.charge_cell(sunray);
+            info!(target: "planet", "[{}] Sunray charged the energy cell", state.id());
         } else if !state.has_rocket() {
             let _ = state.build_rocket(0);
             state.charge_cell(sunray);
+            info!(target: "planet", "[{}] Sunray used to build a rocket", state.id());
+        } else {
+            info!(target: "planet", "[{}] Sunray received but cell already charged and rocket already built", state.id());
         }
     }
 
@@ -62,16 +61,19 @@ impl planet::PlanetAI for PlanetAI {
         if state.has_rocket() {
             // reset warning flags after using the rocket
             self.pending_warning = false;
+            info!(target: "planet", "[{}] Asteroid destroyed by rocket", state.id());
             state.take_rocket()
         } else {
             // Try to build a rocket
             if state.build_rocket(0).is_ok() {
                 self.pending_warning = false;
+                info!(target: "planet", "[{}] Rocket built just in time, asteroid destroyed", state.id());
                 return state.take_rocket();
             }
 
             // Couldn't build the rocket -> warn the explorer
             self.pending_warning = true;
+            warn!(target: "planet", "[{}] No rocket available, planet will be destroyed by the asteroid", state.id());
             None
         }
     }
@@ -82,6 +84,7 @@ impl planet::PlanetAI for PlanetAI {
         _generator: &Generator,
         _combinator: &Combinator,
     ) -> DummyPlanetState {
+        info!(target: "planet", "[{}] Internal state requested", state.id());
         state.to_dummy()
     }
 
@@ -259,31 +262,29 @@ impl planet::PlanetAI for PlanetAI {
 
     fn on_explorer_arrival(
         &mut self,
-        _state: &mut PlanetState,
+        state: &mut PlanetState,
         _generator: &Generator,
         _combinator: &Combinator,
-        _explorer_id: ID,
+        explorer_id: ID,
     ) {
-        self.has_explorer = true;
+        info!(target: "planet", "[{}] Explorer [{}] arrived", state.id(), explorer_id);
     }
 
     fn on_explorer_departure(
         &mut self,
-        _state: &mut PlanetState,
+        state: &mut PlanetState,
         _generator: &Generator,
         _combinator: &Combinator,
-        _explorer_id: ID,
+        explorer_id: ID,
     ) {
-        self.has_explorer = false;
+        info!(target: "planet", "[{}] Explorer [{}] departed", state.id(), explorer_id);
     }
 
-    fn on_start(&mut self, _state: &PlanetState, _generator: &Generator, _combinator: &Combinator) {
-        self.started = true;
-        self.has_explorer = false;
+    fn on_start(&mut self, state: &PlanetState, _generator: &Generator, _combinator: &Combinator) {
+        info!(target: "planet", "[{}] Planet AI started", state.id());
     }
 
-    fn on_stop(&mut self, _state: &PlanetState, _generator: &Generator, _combinator: &Combinator) {
-        self.started = false;
-        self.has_explorer = false;
+    fn on_stop(&mut self, state: &PlanetState, _generator: &Generator, _combinator: &Combinator) {
+        info!(target: "planet", "[{}] Planet AI stopped", state.id());
     }
 }
