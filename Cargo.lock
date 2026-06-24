@@ -14,8 +14,9 @@ dependencies = [
 
 [[package]]
 name = "common-game"
-version = "2.0.0"
-source = "git+https://github.com/unitn-ap-2025/common.git?branch=main#f10376f98b64a83726b057c50caa1a0cc37f3034"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "288def5b45036a2fe3d7ba745c0f0e40b18b5e96164cc139fa220485509e701e"
 dependencies = [
  "crossbeam-channel",
  "enum-as-inner",
@@ -79,9 +80,9 @@ checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.104"
+version = "1.0.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9695f8df41bb4f3d222c95a67532365f569318332d03d5f3f67f37b20e6ebdf0"
+checksum = "5ee95bc4ef87b8d5ba32e8b7714ccc834865276eab0aed5c9958d00ec45f49e8"
 dependencies = [
  "unicode-ident",
 ]
