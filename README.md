@@ -68,23 +68,15 @@ The planet supports 6 complex resource combinations:
 
 ### Asteroid Defense System
 
-<!-- TODO: finish this section -->
+The planet features a multi-layered asteroid defense mechanism:
+
+1. **Rocket Construction**: Uses incoming sunrays to build defensive rockets proactively when the energy cell is already charged.
+2. **Immediate Defense**: When an asteroid arrives, the planet attempts to use an existing rocket or build one just in time to destroy the threat.
+3. **Secret Warning Channel**: If an asteroid cannot be destroyed (no rocket available and unable to build one), the planet sets a warning flag. When an explorer requests supported combinations, the planet removes `AIPartner` from the response to signal the impending danger.
 
 ## API Reference
 
 For APIs, see: [docs](https://advanced-panic-programming.github.io/AirFryer/)
-
-## Testing
-
-The project includes comprehensive test coverage:
-
-<!-- TODO: finish this section -->
-
-### Test Categories
-
-- **Unit Tests**: Individual component testing
-
-<!-- TODO: finish this section -->
 
 ## Future Enhancements
 
