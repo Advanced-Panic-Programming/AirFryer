@@ -440,7 +440,6 @@ mod asteroid_tests {
                         panic!("Resource generated successfully!");
                     } else {
                         println!("Resource not generated!");
-                        // assert!(true); // `assert!(true)` will be optimized out by the compiler remove it
                     }
                 }
                 _ => {
@@ -479,7 +478,6 @@ mod asteroid_tests {
                         match r {
                             BasicResource::Carbon(_) => {
                                 println!("Carbon generated successfully!");
-                                // assert!(true); // `assert!(true)` will be optimized out by the compiler remove it
                             }
                             _ => {
                                 panic!("Other resource generated");
@@ -632,29 +630,6 @@ mod secret_warning {
         println!("No need to warn the explorer");
     }
 
-    //Debug used function
-    /*
-    fn match_planet_to_orc_message(msg: PlanetToOrchestrator) -> String {
-        match msg {
-            PlanetToOrchestrator::AsteroidAck { .. } => String::from("AsteroidAck"),
-            PlanetToOrchestrator::SunrayAck { .. } => String::from("SunrayAck"),
-            PlanetToOrchestrator::StartPlanetAIResult { .. } => String::from("StartPlanetAIResult"),
-            PlanetToOrchestrator::StopPlanetAIResult { .. } => String::from("StopPlanetAIResult"),
-            PlanetToOrchestrator::KillPlanetResult { .. } => String::from("KillPlanetResult"),
-            PlanetToOrchestrator::InternalStateResponse { .. } => {
-                String::from("InternalStateResponse")
-            }
-            PlanetToOrchestrator::IncomingExplorerResponse { .. } => {
-                String::from("IncomingExplorerResponse")
-            }
-            PlanetToOrchestrator::OutgoingExplorerResponse { .. } => {
-                String::from("OutgoingExplorerResponse")
-            }
-            PlanetToOrchestrator::Stopped { .. } => String::from("Stopped"),
-        }
-    }
-     */
-
     #[test]
     fn explorer_detects_asteroid_from_supported_combinations() {
         let planet = spawn_planet();
@@ -791,8 +766,6 @@ mod planet_ai_state {
             }) => {
                 assert_eq!(planet_id, 0);
                 assert!(!planet_state.has_rocket, "the planet doesn't have a rocket");
-                //assert_eq!(planet_state.energy_cells.iter().map(|cell| cell.is_charged()).collect(), 1, "Correct!");
-                //assert_eq!(planet_state.energy_cells.iter().filter(|cell| cell.is_cherged()).collect(), 0, "The planet has no energy cell charged");
             }
             Ok(_) => panic!("Wrong message"),
             Err(e) => panic!("The planet didn't respond: {:?}", e),
@@ -812,7 +785,6 @@ mod planet_ai_state {
             }
             Err(_) => {
                 print!("Ignored message");
-                // assert!(true); // `assert!(true)` will be optimized out by the compiler remove it
             }
         }
     }
@@ -828,18 +800,14 @@ mod planet_ai_state {
             .send(OrchestratorToPlanet::StopPlanetAI);
         let res_stop_ack = planet.rcv_planet_to_orc.recv();
         match res_stop_ack {
-            Ok(PlanetToOrchestrator::StopPlanetAIResult { .. }) => {
-                // assert!(true); // `assert!(true)` will be optimized out by the compiler remove it
-            }
+            Ok(PlanetToOrchestrator::StopPlanetAIResult { .. }) => {}
             _ => {
                 panic!("Other message than the expected");
             }
         }
         let res = planet.rcv_planet_to_orc.recv();
         match res {
-            Ok(PlanetToOrchestrator::Stopped { .. }) => {
-                // assert!(true); // `assert!(true)` will be optimized out by the compiler remove it
-            }
+            Ok(PlanetToOrchestrator::Stopped { .. }) => {}
             Err(_) => {
                 panic!("Failed to receive Planet");
             }
@@ -962,7 +930,6 @@ mod complex_resource_combination {
 
             // Extract Carbon values and combine
             if let (Some(c1), Some(c2)) = (extract_carbon(carbon_1), extract_carbon(carbon_2)) {
-                // charge_planet_with_sunrays(&main_planet, &generator, 1); // <--- no energy cell to
                 // use to combine the elements
                 let result = combine_resources(
                     &main_planet,
